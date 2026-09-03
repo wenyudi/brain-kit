@@ -1,0 +1,8 @@
+{
+  "_note": "实例开关(brain-kit 各脚本读)。memoryProject/libraryProject: basic-memory 项目名;humanDirs: 人读层目录(巨页哨兵范围);harvest: {enabled,model,nightlyCap,minTurns};assetsBackup: 图片/音视频备份目录(留空=只在本机)",
+  "memoryProject": "{{MEMORY_PROJECT}}",
+  "libraryProject": "{{LIBRARY_PROJECT}}",
+  "humanDirs": ["pages", "digest", "navigation", "_system"],
+  "harvest": { "model": "sonnet", "nightlyCap": 3 },
+  "assetsBackup": ""
+}

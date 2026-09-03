@@ -1,0 +1,56 @@
+{
+ "schemaVersion": "0.1.0",
+ "name": "brain 毛坯 · AI",
+ "behavior": "create",
+ "noteContentFormat": "## 我\n\n\n## 划线\n\n{{highlights|map: item => item.text|list}}\n\n## 正文\n\n{{content}}",
+ "properties": [
+  {
+   "name": "created",
+   "value": "{{date|date:\"YYYY-MM-DDTHH:mm\"}}",
+   "type": "text"
+  },
+  {
+   "name": "source",
+   "value": "web",
+   "type": "text"
+  },
+  {
+   "name": "tags",
+   "value": "{{\"给出 3 个中文主题标签，逗号分隔，不要解释\"|split:\",\"}}",
+   "type": "multitext"
+  },
+  {
+   "name": "description",
+   "value": "{{\"用一句中文概括这篇文章的核心观点\"}}",
+   "type": "text"
+  },
+  {
+   "name": "url",
+   "value": "{{url}}",
+   "type": "text"
+  },
+  {
+   "name": "site",
+   "value": "{{site}}",
+   "type": "text"
+  },
+  {
+   "name": "author",
+   "value": "{{author}}",
+   "type": "text"
+  },
+  {
+   "name": "published",
+   "value": "{{published|date:\"YYYY-MM-DD\"}}",
+   "type": "date"
+  },
+  {
+   "name": "note",
+   "value": "",
+   "type": "text"
+  }
+ ],
+ "triggers": [],
+ "noteNameFormat": "{{date|date:\"YYYYMMDDTHHmm\"}}-{{title|safe_name}}",
+ "path": "inbox"
+}

@@ -1,0 +1,7 @@
+[Unit]
+Description=brain-kit daily chain: ingest → harvest-sweep → lint → snapshot for every registered vault
+
+[Service]
+Type=oneshot
+WorkingDirectory={{KIT}}
+ExecStart=/usr/bin/node {{KIT}}/bin/brain daily

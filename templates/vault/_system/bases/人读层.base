@@ -1,0 +1,30 @@
+# 人读层活视图：常青页目录 + digest 归档。嵌在 HOME（![[_system/bases/人读层.base#常青页]]）。
+properties:
+  updated:
+    displayName: "更新"
+  date:
+    displayName: "日期"
+views:
+  - type: table
+    name: "常青页"
+    filters:
+      and:
+        - 'type == "page"'
+    order:
+      - file.name
+      - updated
+    sort:
+      - property: updated
+        direction: DESC
+  - type: table
+    name: "digest"
+    filters:
+      and:
+        - 'type == "digest"'
+    limit: 20
+    order:
+      - file.name
+      - date
+    sort:
+      - property: date
+        direction: DESC

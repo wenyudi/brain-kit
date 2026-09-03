@@ -1,0 +1,44 @@
+# Obsidian 配置目录（含插件密钥 data.json：Local REST API key/私钥、LiveSync 凭据），整体不入库
+.obsidian/
+.trash/
+# _Private 默认整目录不入库(放凭据位置、口令指针这类东西);
+# 例外:自建网络服务清单.md 已剥离全部凭据,显式放行以获得版本历史。
+# 注意写法必须是 `_Private/*` 而不是 `_Private/`,否则 git 不会进入目录,下面的取反不生效。
+_Private/*
+!_Private/自建网络服务清单.md
+
+# Self-hosted LiveSync 版本快照
+.stversions/
+
+# 附件：默认纳入 git；大文件多了想瘦身解除下一行
+# _attachments/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+
+# brain-tools 依赖与密钥
+brain-tools/node_modules/
+brain-tools/.env
+
+# 读时护栏的拦截日志(本地调参用,不入库)
+brain-tools/hooks/*.jsonl
+
+# 运转状态戳(机器本地:每日链心跳 + 快照哨兵记档,brief 播报用)
+_system/.lastrun-daily
+_system/.snapshot-strangers
+
+# Claudian 应用本地状态（不入库）
+.claudian/
+
+# codex 临时工作区（无关项目暂存;2026-08-11 拦下——snapshot 的 add -A 会连库带推,若要入库删掉本行）
+.codex-tmp/
+
+# 沉淀机制的本机状态（2026-09-02）：会话捞取登记 + 会话扫描缓存
+_system/.harvest-ledger
+_system/.sessions-cache.json
+
+# 藏书房图片本地化产物不进 git（2026-09-03 拍板：会撑爆远端）；备份走 vault.json assetsBackup 的 rsync
+_ai/library/assets/

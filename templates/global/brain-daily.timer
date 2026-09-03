@@ -1,0 +1,9 @@
+[Unit]
+Description=brain daily chain at 06:00 (persistent catch-up)
+
+[Timer]
+OnCalendar=*-*-* 06:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
