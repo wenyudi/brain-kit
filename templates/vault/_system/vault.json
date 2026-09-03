@@ -1,8 +1,11 @@
 {
-  "_note": "实例开关(brain-kit 各脚本读)。memoryProject/libraryProject: basic-memory 项目名;humanDirs: 人读层目录(巨页哨兵范围);harvest: {enabled,model,nightlyCap,minTurns};assetsBackup: 图片/音视频备份目录(留空=只在本机)",
+  "_note": "实例开关(brain-kit 各脚本读)。memoryProject/libraryProject: basic-memory 项目名;humanDirs: 人读层目录(巨页/死链哨兵范围,也是快照的顶层白名单);harvest: {enabled,model,nightlyCap,minTurns};checkpoint.push: Stop hook 提交后顺手推远端;retired/retiredFiles: 本库退役的顶层目录/文件(写时拦 + 同步推尸哨兵);assetsBackup: 图片/音视频备份目录(留空=只在本机)",
   "memoryProject": "{{MEMORY_PROJECT}}",
   "libraryProject": "{{LIBRARY_PROJECT}}",
-  "humanDirs": ["pages", "digest", "navigation", "_system"],
+  "humanDirs": ["pages", "digest", "navigation", "_Private", "_system"],
   "harvest": { "model": "sonnet", "nightlyCap": 3 },
+  "checkpoint": { "push": false },
+  "retired": [],
+  "retiredFiles": [],
   "assetsBackup": ""
 }

@@ -16,9 +16,12 @@ const die = m => { console.error(m); process.exit(1); };
 const opt = n => { const i = rest.indexOf(n); if (i < 0) return null; const v = rest[i + 1]; rest.splice(i, 2); return v; };
 const opts = n => { const out = []; let v; while ((v = opt(n)) !== null) out.push(v); return out; };
 const flag = n => { const i = rest.indexOf(n); if (i < 0) return false; rest.splice(i, 1); return true; };
-const readJson = p => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } };
+// 不存在 → null；存在但坏 JSON → 报错退出（曾经把坏文件当空对象再整文件覆盖，会把 settings.json 的 env/model/其他 hooks 全丢；审计 2026-09-03）
+const readJson = p => { if (!fs.existsSync(p)) return null; try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (e) { die(`${p} 不是合法 JSON（${e.message}）——修好再跑，brain 不覆盖它`); } };
 const writeJson = (p, o) => { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, JSON.stringify(o, null, 2) + '\n'); };
 const sh = (c, a, o = {}) => spawnSync(c, a, { encoding: 'utf8', ...o });
+const brainTz = () => { try { return require(path.join(LIB, 'lib.js')).TZ; } catch { return process.env.BRAIN_TZ || 'Asia/Shanghai'; } };
+const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
 const SCRIPTS = { brief: 'brief.js', lint: 'lint.js', ingest: 'ingest.js', sweep: 'harvest-sweep.js', sessions: 'sessions.js', check: 'check.js', snap: 'snap.js', recall: 'recall.js', now: 'now.js', open: 'open-in-obsidian.js' };
 const NVM = 'export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1; ';
 const hookCmd = (script, extra = '') => `bash -c '${NVM}BRAIN_ROOT="$CLAUDE_PROJECT_DIR" exec node "${KIT}/lib/${script}"${extra}'`;
@@ -30,13 +33,14 @@ function resolveVault() {
 }
 function runScript(script, args, vault, env = {}) {
   const r = spawnSync('node', [path.join(LIB, script), ...args], { stdio: 'inherit', env: { ...process.env, BRAIN_ROOT: vault.path, ...env } });
-  return r.status || 0;
+  return r.status ?? (r.error ? 1 : 0);   // 起不来（status null）也算失败
 }
 function vaultCfg(v) { return R.vaultConfig(v) || {}; }
 function fill(text, v) {
   const c = vaultCfg(v); const reg = R.vaults().find(x => x.path === v.path) || v;
   const map = { NAME: v.name || path.basename(v.path), PATH: v.path, KIT, MEMORY_PROJECT: c.memoryProject || 'brain', LIBRARY_PROJECT: c.libraryProject || 'library',
-    HUMAN_DIRS: (c.humanDirs || ['pages', 'digest', 'navigation', '_Private', '_system']).join(' / '), INCLUDE: (reg.include || []).join('、') || '（默认库：其他库不管的目录都归它）', MEDIA: path.join(path.dirname(v.path), 'library-media') };
+    HUMAN_DIRS: (c.humanDirs || ['pages', 'digest', 'navigation', '_Private', '_system']).join(' / '), INCLUDE: (reg.include || []).join('、') || '（默认库：其他库不管的目录都归它）', MEDIA: path.join(path.dirname(v.path), 'library-media'),
+    OBSIDIAN_VAULT: c.obsidianVault || path.basename(v.path) };   // Obsidian 里的库名默认=目录名；不同时 vault.json 填 obsidianVault
   return text.replace(/\{\{(\w+)\}\}/g, (m, k) => (k in map ? map[k] : m));
 }
 // 标记块替换：<!-- brain-kit:<id> start --> … <!-- brain-kit:<id> end -->
@@ -50,7 +54,11 @@ function renderBlock(file, id, body, { appendIfMissing = false } = {}) {
   else return false;
   fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, s.endsWith('\n') ? s : s + '\n'); return true;
 }
-function link(target, linkPath) { try { const st = fs.lstatSync(linkPath); if (st.isSymbolicLink()) fs.unlinkSync(linkPath); else fs.rmSync(linkPath, { recursive: true, force: true }); } catch { /* 不存在 */ } fs.mkdirSync(path.dirname(linkPath), { recursive: true }); fs.symlinkSync(target, linkPath); }
+// 目标位置已有真实文件/目录（自己 clone 过的 skill、手写的 harvest、旧 brain 可执行文件）→ 改名留底，不删（审计 2026-09-03）
+function link(target, linkPath) {
+  try { const st = fs.lstatSync(linkPath); if (st.isSymbolicLink()) fs.unlinkSync(linkPath); else { const bak = `${linkPath}.bak-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}`; fs.renameSync(linkPath, bak); console.log(`  ${linkPath} 不是软链，已改名留底 → ${bak}`); } } catch { /* 不存在 */ }
+  fs.mkdirSync(path.dirname(linkPath), { recursive: true }); fs.symlinkSync(target, linkPath);
+}
 
 // ---- 每个库的接线：hooks / skills 软链 / CLAUDE.md 通用块 ----
 function wireHooks(v) {
@@ -64,7 +72,8 @@ function wireHooks(v) {
   const out = {
     brief: set('SessionStart', null, ['/brief.js'], hookCmd('brief.js')),
     check: set('PostToolUse', 'Write|Edit', ['/check.js'], hookCmd('check.js')),
-    snap: set('Stop', null, ['/snap.js'], hookCmd('snap.js', ' checkpoint'), { addIfMissing: !(s.hooks.Stop || []).length }),
+    // 旧式裸 git Stop hook（git add -A && push）一并换成 snap.js（陌生路径守卫；推不推由 vault.json checkpoint.push 定）
+    snap: set('Stop', null, ['/snap.js', 'git add -A'], hookCmd('snap.js', ' checkpoint'), { addIfMissing: !(s.hooks.Stop || []).length }),
     guard: set('PreToolUse', 'Read|Bash|Grep|Glob', ['protect-secrets.js'], `bash -c '${NVM}exec node "${KIT}/lib/hooks/protect-secrets.js"'`, { addIfMissing: false }),
   };
   writeJson(p, s); return out;
@@ -101,14 +110,36 @@ function wireGlobal() {
   lines.push('skills 软链（~/.claude/skills/harvest，~/.agents/skills/*）✓');
   // systemd
   const ud = path.join(HOME, '.config', 'systemd', 'user'); fs.mkdirSync(ud, { recursive: true });
-  const svc = fs.readFileSync(path.join(KIT, 'templates', 'global', 'brain-daily.service'), 'utf8').replace(/\{\{KIT\}\}/g, KIT);
-  const sp = path.join(ud, 'brain-daily.service'); const changed = !fs.existsSync(sp) || fs.readFileSync(sp, 'utf8') !== svc;
-  fs.writeFileSync(sp, svc); const tp = path.join(ud, 'brain-daily.timer'); if (!fs.existsSync(tp)) fs.copyFileSync(path.join(KIT, 'templates', 'global', 'brain-daily.timer'), tp);
-  sh('systemctl', ['--user', 'daemon-reload']); if (changed) sh('systemctl', ['--user', 'enable', '--now', 'brain-daily.timer']);
-  lines.push(`systemd brain-daily ${changed ? '已刷新' : '✓'}`);
+  // service/timer 都从模板渲染：node 用当前解释器（别的机器 node 只在 nvm 里，/usr/bin/node 不存在会静默死）；
+  // timer 带 brain 时区——机器时区与人不一致时（本机 PDT vs 北京）"06:00" 必须按人的时区算（2026-09-03 实发：跑成北京 21:00）
+  const tz = brainTz(); const map = { KIT, NODE: process.execPath, TZ: tz, HOME };
+  const render = f => fs.readFileSync(path.join(KIT, 'templates', 'global', f), 'utf8').replace(/\{\{(\w+)\}\}/g, (m, k) => (k in map ? map[k] : m));
+  const put = (name, text) => { const p = path.join(ud, name); const changed = !fs.existsSync(p) || fs.readFileSync(p, 'utf8') !== text; if (changed) fs.writeFileSync(p, text); return changed; };
+  const sc = put('brain-daily.service', render('brain-daily.service')); const tc = put('brain-daily.timer', render('brain-daily.timer'));
+  sh('systemctl', ['--user', 'daemon-reload']);
+  if (sc || tc) sh('systemctl', ['--user', 'enable', '--now', 'brain-daily.timer']);
+  if (tc) sh('systemctl', ['--user', 'restart', 'brain-daily.timer']);
+  lines.push(`systemd brain-daily ${sc || tc ? '已刷新' : '✓'}（每日 06:00 ${tz}）`);
   // PATH
   const lb = path.join(HOME, '.local', 'bin'); fs.mkdirSync(lb, { recursive: true }); link(path.join(KIT, 'bin', 'brain'), path.join(lb, 'brain')); fs.chmodSync(path.join(KIT, 'bin', 'brain'), 0o755); lines.push('~/.local/bin/brain ✓');
   return lines;
+}
+
+// register/init 共用的参数解析：一次解析成对象（opt() 会从 rest 里摘走参数，二次解析会丢 --name/--include；审计 2026-09-03）
+function regOpts() {
+  const o = { name: opt('--name'), project: opt('--project'), library: opt('--library'), include: opts('--include'), isDefault: flag('--default'), noDaily: flag('--no-daily'), force: flag('--force') };
+  o.dir = rest.find(a => !a.startsWith('--')); return o;
+}
+function doRegister(o) {
+  if (!o.dir) die('用法: brain register <目录> [--name N] [--project P] [--library L] [--include 前缀 …] [--default] [--no-daily]');
+  const entry = { path: R.real(o.dir), name: o.name || path.basename(R.real(o.dir)) };
+  if (o.include.length) entry.include = o.include.map(R.real);
+  if (o.isDefault) entry.default = true; entry.daily = !o.noDaily;
+  const v = R.upsert(entry);
+  const cfg = ensureVaultJson(v, { project: o.project, library: o.library });
+  const hooks = wireHooks(v); const nSkills = wireSkills(v); const charter = wireCharter(v);
+  console.log(`已登记 ${v.name} → ${v.path}\n  记忆项目 ${cfg.memoryProject} · 藏书房 ${cfg.libraryProject} · 范围 ${(v.include || []).join('、') || '默认'}\n  hooks: ${Object.entries(hooks).map(([k, s]) => `${k} ${s}`).join(' · ')}\n  skills 软链 ${nSkills} 个 · CLAUDE.md 通用块 ${charter ? '已刷新' : '没有标记块（在 CLAUDE.md 里放 <!-- brain-kit:core start --> / end --> 再 brain upgrade）'}\n  basic-memory: ${ensureBmProjects(v)}`);
+  console.log(wireGlobal().map(l => '  ' + l).join('\n'));
 }
 
 const commands = {
@@ -117,42 +148,51 @@ const commands = {
   which() { const c = rest[0] || process.cwd(); const v = R.vaultAt(c) || R.vaultFor(c); if (!v) die('无匹配 vault'); const cfg = vaultCfg(v); console.log(`${v.path}\t${cfg.memoryProject || '?'}\t${cfg.libraryProject || '?'}`); },
   snapshot() { const v = resolveVault(); process.exit(spawnSync('bash', [path.join(LIB, 'snapshot.sh')], { stdio: 'inherit', env: { ...process.env, BRAIN_ROOT: v.path } }).status || 0); },
   daily() {
-    for (const v of R.vaults()) {
-      if (v.daily === false) continue;
-      console.log(`=== brain daily @ ${v.path} ===`);
-      for (const s of ['ingest.js', 'harvest-sweep.js', 'lint.js']) runScript(s, [], v);
-      spawnSync('bash', [path.join(LIB, 'snapshot.sh')], { stdio: 'inherit', env: { ...process.env, BRAIN_ROOT: v.path } });
-      const dest = vaultCfg(v).assetsBackup;
-      if (dest) { fs.mkdirSync(dest, { recursive: true }); sh('rsync', ['-a', '--delete', path.join(v.path, '_ai', 'library', 'assets') + '/', path.join(dest, 'assets') + '/']); const media = path.join(path.dirname(v.path), 'library-media'); if (fs.existsSync(media)) sh('rsync', ['-a', media + '/', path.join(dest, 'media') + '/']); console.log(`图片/音视频已 rsync → ${dest}`); }
-    }
+    // 互斥锁：定时器撞上手动跑（或上一晚没跑完）就跳过，免得同一场会话被捞两遍
+    const lock = path.join(path.dirname(R.REG), 'daily.lock');
+    let pid = 0; try { pid = +fs.readFileSync(lock, 'utf8'); } catch { /* 无锁 */ }
+    if (pid && pid !== process.pid && alive(pid)) die(`brain daily 已在跑（pid ${pid}），本次跳过`);
+    fs.mkdirSync(path.dirname(lock), { recursive: true }); fs.writeFileSync(lock, String(process.pid));
+    let failed = 0;
+    try {
+      for (const v of R.vaults()) {
+        if (v.daily === false) continue;
+        console.log(`=== brain daily @ ${v.path} ===`);
+        // 库不在（外置盘/NAS 没挂、异机路径不同）就跳过：在挂载点上造影子骨架会把夜捞产物写进虚空
+        if (!fs.existsSync(path.join(v.path, '_ai', 'memory'))) { console.log('库不在（未挂载？）跳过'); failed++; continue; }
+        const st = {};
+        for (const s of ['ingest.js', 'harvest-sweep.js', 'lint.js']) st[s.replace('.js', '')] = runScript(s, [], v);
+        st.snapshot = spawnSync('bash', [path.join(LIB, 'snapshot.sh')], { stdio: 'inherit', env: { ...process.env, BRAIN_ROOT: v.path } }).status ?? 1;
+        const dest = vaultCfg(v).assetsBackup;
+        if (dest) {
+          // 镜像不带 --delete：本机图片被误清时，备份不跟着清
+          try { fs.mkdirSync(dest, { recursive: true }); const r1 = sh('rsync', ['-a', path.join(v.path, '_ai', 'library', 'assets') + '/', path.join(dest, 'assets') + '/']); const media = path.join(path.dirname(v.path), 'library-media'); const r2 = fs.existsSync(media) ? sh('rsync', ['-a', media + '/', path.join(dest, 'media') + '/']) : { status: 0 }; st.backup = (r1.status ?? 1) || (r2.status ?? 1); console.log(st.backup ? `图片/音视频 rsync 失败 exit ${st.backup}` : `图片/音视频已 rsync → ${dest}`); }
+          catch (e) { st.backup = 1; console.log(`图片/音视频备份失败：${e.message}`); }
+        }
+        // 每日链状态戳（mtime 即心跳；brief 播报失败步骤，systemd 退出码也跟着非零）
+        const bad = Object.entries(st).filter(([, c]) => c).map(([k, c]) => `${k}(exit ${c})`);
+        try { fs.writeFileSync(path.join(v.path, '_system', '.lastrun-daily'), JSON.stringify({ at: new Date().toISOString(), steps: st, failed: bad }) + '\n'); } catch { /* 只读 */ }
+        if (bad.length) { failed++; console.log(`步骤失败：${bad.join('、')}`); }
+      }
+    } finally { try { fs.unlinkSync(lock); } catch { /* 无所谓 */ } }
+    if (failed) process.exitCode = 1;
   },
-  register() {
-    const dir = rest.find(a => !a.startsWith('--')); if (!dir) die('用法: brain register <目录> [--name N] [--project P] [--library L] [--include 前缀 …] [--default] [--no-daily]');
-    rest.splice(rest.indexOf(dir), 1);
-    const entry = { path: R.real(dir), name: opt('--name') || path.basename(R.real(dir)) };
-    const inc = opts('--include'); if (inc.length) entry.include = inc.map(R.real);
-    if (flag('--default')) entry.default = true; if (flag('--no-daily')) entry.daily = false; else entry.daily = true;
-    const v = R.upsert(entry);
-    const cfg = ensureVaultJson(v, { project: opt('--project'), library: opt('--library') });
-    const hooks = wireHooks(v); const nSkills = wireSkills(v); const charter = wireCharter(v);
-    console.log(`已登记 ${v.name} → ${v.path}\n  记忆项目 ${cfg.memoryProject} · 藏书房 ${cfg.libraryProject} · 范围 ${(v.include || []).join('、') || '默认'}\n  hooks: ${Object.entries(hooks).map(([k, s]) => `${k} ${s}`).join(' · ')}\n  skills 软链 ${nSkills} 个 · CLAUDE.md 通用块 ${charter ? '已刷新' : '没有标记块（在 CLAUDE.md 里放 <!-- brain-kit:core start --> / end --> 再 brain upgrade）'}\n  basic-memory: ${ensureBmProjects(v)}`);
-    console.log(wireGlobal().map(l => '  ' + l).join('\n'));
-  },
+  register() { doRegister(regOpts()); },
   init() {
-    const dir = rest.find(a => !a.startsWith('--')); if (!dir) die('用法: brain init <目录> [--name N] [--project P] [--library L] [--include 前缀 …] [--default] [--no-daily]');
-    const abs = path.resolve(dir); fs.mkdirSync(abs, { recursive: true });
+    const o = regOpts(); if (!o.dir) die('用法: brain init <目录> [--name N] [--project P] [--library L] [--include 前缀 …] [--default] [--no-daily] [--force]');
+    const abs = path.resolve(o.dir); fs.mkdirSync(abs, { recursive: true });
     const empty = !fs.readdirSync(abs).some(n => !n.startsWith('.'));
-    if (!empty && !flag('--force')) console.log(`${abs} 非空：只补缺的文件，不覆盖已有（--force 覆盖）`);
-    const force = !empty ? false : true;
+    const force = o.force || empty;
+    if (!force) console.log(`${abs} 非空：只补缺的文件，不覆盖已有（--force 覆盖）`);
     const tpl = path.join(KIT, 'templates', 'vault');
-    const v = { name: opt('--name') || path.basename(abs), path: abs, include: opts('--include') };
+    const v = { name: o.name || path.basename(abs), path: abs, include: o.include };
     // 先写 vault.json 让 fill() 有项目名
-    ensureVaultJson(v, { project: opt('--project'), library: opt('--library') });
+    ensureVaultJson(v, { project: o.project, library: o.library });
     const walk = d => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const src = path.join(d, e.name); const rel = path.relative(tpl, src); const dst = path.join(abs, rel); if (e.isDirectory()) { fs.mkdirSync(dst, { recursive: true }); walk(src); continue; } if (fs.existsSync(dst) && !force) continue; const txt = fs.readFileSync(src); fs.mkdirSync(path.dirname(dst), { recursive: true }); fs.writeFileSync(dst, /\.(md|json|base|txt)$/.test(e.name) ? fill(txt.toString('utf8'), v) : txt); } };
     walk(tpl);
     if (!fs.existsSync(path.join(abs, '.git'))) sh('git', ['init', '-q'], { cwd: abs });
     console.log(`骨架已铺 → ${abs}`);
-    rest.unshift(abs); commands.register();
+    doRegister({ ...o, dir: abs });
     console.log(`下一步：Obsidian 打开该目录作为库（名字 ${v.name}），userIgnoreFilters 加 _ai/；改 CLAUDE.md 块外的本库专属规则；git remote 自定。`);
   },
   upgrade() {
@@ -163,9 +203,15 @@ const commands = {
   doctor() {
     const ok = (c, m) => console.log(`${c ? '✅' : '⚠️ '} ${m}`);
     ok(true, `kit ${KIT} · node ${process.version}`);
-    ok(fs.existsSync(path.join(LIB, 'node_modules', 'gray-matter')), 'gray-matter 依赖');
+    ok((() => { try { require.resolve('gray-matter', { paths: [LIB] }); return true; } catch { return false; } })(), 'gray-matter 依赖（缺了就在 kit 根 npm i）');
     const vs = R.vaults(); ok(vs.length > 0, `注册表 ${R.REG}：${vs.length} 个库`);
-    for (const v of vs) { const hooks = readJson(path.join(v.path, '.claude', 'settings.json')); const wired = JSON.stringify(hooks || {}).includes(`${KIT}/lib/brief.js`); ok(fs.existsSync(path.join(v.path, '_ai', 'memory')), `${v.name}: _ai/memory 在`); ok(wired, `${v.name}: hooks 指向 kit`); ok(fs.readFileSync(path.join(v.path, 'CLAUDE.md'), 'utf8').includes('brain-kit:core start'), `${v.name}: CLAUDE.md 有通用块`); }
+    for (const v of vs) {
+      const hooks = readJson(path.join(v.path, '.claude', 'settings.json')); const wired = JSON.stringify(hooks || {}).includes(`${KIT}/lib/brief.js`);
+      ok(fs.existsSync(path.join(v.path, '_ai', 'memory')), `${v.name}: _ai/memory 在`); ok(wired, `${v.name}: hooks 指向 kit`);
+      const charter = (() => { try { return fs.readFileSync(path.join(v.path, 'CLAUDE.md'), 'utf8'); } catch { return ''; } })(); ok(charter.includes('brain-kit:core start'), `${v.name}: CLAUDE.md 有通用块`);
+      const ident = sh('git', ['config', 'user.email'], { cwd: v.path }).status === 0; const up = sh('git', ['rev-parse', '--abbrev-ref', '@{u}'], { cwd: v.path }).status === 0;
+      ok(ident && up, `${v.name}: git 身份与上游在（快照提交/推送用）`);
+    }
     ok(sh('obsidian', ['vaults']).status === 0, 'Obsidian CLI（app 开着）');
     ok(sh('claude', ['--version']).status === 0 || fs.existsSync(path.join(HOME, '.local', 'bin', 'claude')), 'claude CLI');
     ok(sh('curl', ['-s', '-m', '3', '-o', '/dev/null', '-w', '%{http_code}', 'http://127.0.0.1:8000/mcp', '-X', 'POST', '-H', 'content-type: application/json', '-H', 'accept: application/json, text/event-stream', '-d', '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"doctor","version":"0"}}}']).stdout === '200', 'basic-memory 共享服务 127.0.0.1:8000');
@@ -173,6 +219,9 @@ const commands = {
     ok(fs.existsSync(path.join(HOME, '.local', 'share', 'brain-asr', '.venv', 'bin', 'python')), 'faster-whisper venv（~/.local/share/brain-asr）');
     ok(sh('defuddle', ['--version']).status === 0, 'defuddle');
     ok((sh('systemctl', ['--user', 'is-active', 'brain-daily.timer']).stdout || '').trim() === 'active', 'systemd brain-daily.timer');
+    const tz = brainTz(); const unit = n => { try { return fs.readFileSync(path.join(HOME, '.config', 'systemd', 'user', n), 'utf8'); } catch { return ''; } };
+    ok(unit('brain-daily.timer').includes(` ${tz}`), `定时器按 brain 时区触发（${tz}）——不是就 brain upgrade`);
+    const nodeBin = (/ExecStart=(\S+)/.exec(unit('brain-daily.service')) || [])[1]; ok(!!nodeBin && fs.existsSync(nodeBin), `service 的 node 在（${nodeBin || '?'}）`);
     const g = readJson(path.join(HOME, '.claude', 'settings.json')); ok(JSON.stringify(g || {}).includes(`${KIT}/lib/recall.js`), '全局 SessionStart recall 钩子指向 kit');
     ok(JSON.stringify(g || {}).includes(`${KIT}/lib/hooks/protect-secrets.js`), '全局 protect-secrets 指向 kit');
   },

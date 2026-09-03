@@ -20,7 +20,7 @@
 ### 藏书房怎么用
 
 - **入口三条**：对话里丢来的路径/链接（你说的那句话就是说明；链接用 `defuddle parse <url> --md` 拿干净全文落 raw，不用 WebFetch 的摘要）· Web Clipper 剪进 `inbox/`（模板带 `note` 属性和 `## 我`/`## 划线` 段）· B 站字幕剪进 `inbox/`（附加段落 `我`），后两条见 `_system/web-clipper.md`
-- **出口机械化**：`brain ingest` 零 LLM 把 `source: web` 的毛坯搬进 `_ai/library/raw/`（图片下到 `assets/`、B 站无字幕 yt-dlp+faster-whisper 转写、按 url 查重、经 Obsidian 删毛坯、提交），每日 06:00 自动跑；会话里 brief 报「剪藏 N 条未入库」就跑 `brain ingest --no-asr`（几秒）。手记（`source: obsidian`）不经它，会话里分流
+- **出口机械化**：`brain ingest` 零 LLM 把 `source: web` 的毛坯搬进 `_ai/library/raw/`（图片下到 `assets/`、B 站无字幕 yt-dlp+faster-whisper 转写、按 url 查重、经 Obsidian 删毛坯、提交），每日 06:00 自动跑；会话里 brief 报「剪藏 N 条未入库」就跑 `brain ingest --no-asr`（通常几秒，图多时分钟级）。手记（`source: obsidian`）不经它，会话里分流
 - **说明决定深浅**：无说明 = 纯存档，ingest 机械生成 stub source 页（`depth: stub`），不动 LLM；有说明/划线 = 用户在意，brief 报「待深消化」，说「消化」就写深页（`depth: deep`，`Why collected` 原文引用用户的话，划的段落优先展开），说明含判断的同时进记忆区并链回 source 页。想深挖某篇 stub 就说「消化 <标题>」
 - **深消化 = 一篇 source 页**（英文，规格见 library README）：TL;DR + 保留论证链的结构化要点 + 关键引文 + 为何收（引用说明，不编不问）。跨源 synthesis 页懒编译：同主题攒到约 3 篇才写
 - **准入 = 策展**：用户收的就进，不设第二道刀；误剪照样成 stub，digest 点名时用户说删再删（raw + stub + assets 目录一起）
@@ -36,7 +36,7 @@
 **digest/ 周报（推送）**
 - 每周第一场会话（brief 会提示）：把上周 `_ai/` 新增（journal + craft + 藏书房入库 + git log）蒸成一篇科普 blog 体的小结，存 `digest/<年>-W<周>.md`（`type: digest` + `date`）。形式跟内容走（体例见人话规范）
 - 末尾带一两条**回响**：从记忆区或藏书房挑与本周相关的旧内容重浮
-- 末尾列**本周新写的 draft 常青页**（等否决）、**藏书房待深消化存货**、**本周自动捞（provenance: auto-harvest）的记忆条目**——让人扫一眼，错的说一声改
+- 末尾列**本周新写的 draft 常青页**（等否决）、**藏书房待深消化存货**、**本周自动捞的记忆条目**（craft/tasks 看 frontmatter `provenance: auto-harvest`，journal 看 `auto-harvest` 前缀的条）——让人扫一眼，错的说一声改
 - 生成后：刷 HOME 顶部的最新 digest 嵌入和「最近」区 → git 提交 → `brain open "digest/<文件名>.md"`（失败就算了）
 - 空周（`_ai/` 没新增）跳过，别硬写
 
@@ -46,7 +46,7 @@
 
 ### 对话里自动做的事
 
-1. **沉淀**：遇事就记（不踩排除三类就进）随手写记忆区，落完一行轻提示；事件/决定追加 `journal/<今天>.md`；教训同时落 `craft/` 一页；任务进 `tasks/` 带 due。**顺手挖**：用户提到做成/搞砸/做了决定，追问一句关键细节（一次只追一句）。**沉淀时机不靠人记**：vault 外的会话由夜间 `brain daily` 的 harvest-sweep 自动捞，brief 报「未捞会话」；用户说「捞 #n」就 `brain sessions condense #n` 读浓缩稿、按 /harvest 落盘、`brain sessions mark #n manual` 登记
+1. **沉淀**：遇事就记（不踩排除三类就进）随手写记忆区，落完一行轻提示；事件/决定追加 `journal/<今天>.md`；教训同时落 `craft/` 一页；任务进 `tasks/` 带 due。**顺手挖**：用户提到做成/搞砸/做了决定，追问一句关键细节（一次只追一句）。**沉淀时机不靠人记**：vault 外的会话由夜间 `brain daily` 的 harvest-sweep 自动捞（起点是上次捞到或会话自己最后一次写记忆区的轮次，之后又续 ≥6 轮就再捞新增段），brief 报「未捞会话」；用户说「捞 #n」就 `brain sessions condense #n` 读浓缩稿、按 /harvest 落盘、`brain sessions mark #n manual` 登记
 2. **收藏**：用户丢来资料（路径/链接/全文）→ 落 raw → 按说明定深浅（见藏书房节）
 3. **检索**：答问题先查记忆区、藏书房和速查，给答案带依据，不做无源断言
 4. **常青页**：见 pages 的规矩（默认写 draft，用户否决）
@@ -62,10 +62,10 @@ SessionStart hook 注入 brief，以它为准：
 
 ### 机械活（brain-kit）
 
-- 入口 `brain`（`{{KIT}}/bin/brain`，`~/.local/bin/brain`）：`brief | ingest [--dry-run --no-asr --repair-assets] | lint | sweep [--dry-run] | sessions list|condense #n|mark #n | check | snap | snapshot | open <相对路径> | now | doctor | list | which`。在库里跑自动认库，否则 `--vault <路径>`
+- 入口 `brain`（`{{KIT}}/bin/brain`，`~/.local/bin/brain`）：`brief | ingest [--dry-run --no-asr --no-commit --repair-assets] | lint | sweep [--dry-run --limit N --file <jsonl>] | sessions list|json|condense #n|mark #n | check | snap | snapshot | open <相对路径> | now | doctor | list | which`。在库里跑自动认库，否则 `--vault <路径>`
 - hooks 已接（`.claude/settings.json`，由 `brain register/upgrade` 维护）：SessionStart `brief` 注入简报 · PreToolUse `protect-secrets` 密钥读拦截（全局，改规则必跑 kit 的 `npm test`）· PostToolUse `check` 人读层写时校验（按报错改对别绕过）· Stop checkpoint 提交
-- 每日 06:00 systemd `brain-daily`：`brain daily` = 注册表里每个库 ingest → harvest-sweep（每晚 ≤3 场未捞会话，独立 `claude -p` 实例读浓缩稿，产物标 `provenance: auto-harvest`；关：`_system/vault.json` `harvest.enabled: false`）→ lint → snapshot 推送
-- Obsidian 常开（为同步）：删/移/开 vault 文件优先走 `obsidian vault="{{NAME}}" delete|move|open path=…`（同步插件认账，进 .trash 可捞）；kepano 五件 skill 已软链在 `.claude/skills/`
+- 每日 06:00（按 BRAIN_TZ，默认 Asia/Shanghai；timer 渲染时带时区，机器时区不作数）systemd `brain-daily`：`brain daily` = 注册表里每个库 ingest（含图片重试）→ harvest-sweep（每晚 ≤3 场未捞会话，独立 `claude -p` 实例只放行读与写 `_ai/memory/**`，读打过码的浓缩稿；捞过的会话又续了 ≥6 轮只捞新增段；产物标 `provenance: auto-harvest`；关：`_system/vault.json` `harvest.enabled: false`）→ lint → snapshot 推送
+- Obsidian 常开（为同步）：删/移/开 vault 文件优先走 `obsidian vault="{{OBSIDIAN_VAULT}}" delete|move|open path=…`（同步插件认账，进 .trash 可捞）；kepano 五件 skill 已软链在 `.claude/skills/`
 - 时间戳 `brain now`；人读层契约散文版 `_system/schema.md`，规则与阈值单源 `{{KIT}}/lib/lib.js` CONTRACT
 
 ### 底线

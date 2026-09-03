@@ -3,12 +3,18 @@
   "version": "0.3.0",
   "private": true,
   "description": "brain 单仓三区个人知识系统的机制层：一个不装内容的仓，按注册表服务多个 vault（Claude Code / Codex 共用）",
-  "bin": { "brain": "bin/brain" },
-  "engines": { "node": ">=18" },
+  "bin": {
+    "brain": "bin/brain"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "daily": "node bin/brain daily",
     "doctor": "node bin/brain doctor",
-    "test": "node lib/hooks/protect-secrets.selftest.js"
+    "test": "node lib/hooks/protect-secrets.selftest.js && node lib/sessions.selftest.js"
   },
-  "dependencies": { "gray-matter": "^4.0.3" }
+  "dependencies": {
+    "gray-matter": "^4.0.3"
+  }
 }

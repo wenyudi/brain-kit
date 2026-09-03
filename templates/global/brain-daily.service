@@ -4,4 +4,6 @@ Description=brain-kit daily chain: ingest → harvest-sweep → lint → snapsho
 [Service]
 Type=oneshot
 WorkingDirectory={{KIT}}
-ExecStart=/usr/bin/node {{KIT}}/bin/brain daily
+Environment=BRAIN_TZ={{TZ}}
+Environment=PATH={{HOME}}/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart={{NODE}} {{KIT}}/bin/brain daily

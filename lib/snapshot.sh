@@ -6,5 +6,5 @@ cd "${BRAIN_ROOT:?snapshot.sh 需要 BRAIN_ROOT}"
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0
 node "$(dirname "$0")/snap.js" daily
 if [ -n "$(git log --oneline '@{u}..HEAD' 2>/dev/null)" ]; then
-  git push -q origin master || echo "push 失败（离线？）——快照已本地提交"
+  git push -q origin HEAD || echo "push 失败（离线？）——快照已本地提交"
 fi

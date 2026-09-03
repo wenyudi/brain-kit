@@ -30,14 +30,14 @@ brain doctor
 ## 日常
 
 - 库里开 `claude` 就是全部用法：SessionStart 注入简报，对话里自动沉淀/收藏/检索，写人读层时 check 拦契约，Stop 自动 checkpoint
-- `brain daily`（systemd 06:00）：每个库 ingest → harvest-sweep → lint → snapshot；`brain ingest --dry-run`、`brain sweep --dry-run`、`brain lint` 随时手动
+- `brain daily`（systemd 每日 06:00，按 `BRAIN_TZ` 默认 Asia/Shanghai，timer 渲染时带时区）：每个库 ingest（含图片重试）→ harvest-sweep → lint → snapshot；`brain ingest --dry-run`、`brain sweep --dry-run`、`brain lint` 随时手动
 - 机制升级：改 `lib/` 或 `charter/core.md`，`git pull` 后 `brain upgrade` 刷所有库的通用块 / hooks / 软链 / 全局接线
 - 规则与阈值单源：`lib/lib.js` 的 `CONTRACT`；改护栏规则必跑 `npm test`
 
 ## 设计要点
 
 - **机制与内容分离**：内容库各自 git、各自远端、各自准入规则（工作/个人脱钩）；机制只有一份，零拷贝，升级即全体生效
-- **沉淀不靠人记**：会话扫描 + 夜间独立实例自动捞，白天的会话不被打断；产物带 `provenance: auto-harvest`
+- **沉淀不靠人记**：会话扫描（流式 + 增量，1 GB 的 Codex 会话也扫）+ 夜间独立实例自动捞（`--allowedTools` 白名单：只读 + 只写 `_ai/memory/**`，浓缩稿先打码密钥），白天的会话不被打断；捞过的会话又续了 ≥6 轮只捞新增段；产物带 `provenance: auto-harvest`
 - **inbox 出口机械化**：剪藏零 LLM 入库，只有用户写了说明的资料才花 LLM 深消化
 - **立规矩配约束**：能硬拦的进 check/protect-secrets，能日检的进 lint，该开场提醒的进 brief，纯判断类才留规约文字
 - **Obsidian 常开**：删/移/开文件走官方 CLI，让同步插件认账
