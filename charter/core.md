@@ -62,7 +62,8 @@ SessionStart hook 注入 brief，以它为准：
 
 ### 机械活（brain-kit）
 
-- 入口 `brain`（`{{KIT}}/bin/brain`，`~/.local/bin/brain`）：`brief | ingest [--dry-run --no-asr --no-commit --repair-assets] | lint | sweep [--dry-run --limit N --file <jsonl>] | sessions list|json|condense #n|mark #n | check | snap | snapshot | open <相对路径> | now | doctor | list | which`。在库里跑自动认库，否则 `--vault <路径>`
+- 入口 `brain`（`{{KIT}}/bin/brain`，`~/.local/bin/brain`）：`brief | ingest [--dry-run --no-asr --no-commit --repair-assets] | lint | sweep [--dry-run --limit N --file <jsonl>] | sessions list|json|condense #n|mark #n | check | snap | snapshot | open <相对路径> | now | doctor | list | which | sec`。在库里跑自动认库，否则 `--vault <路径>`
+- **用凭据不读凭据**：需要密码/密钥时走 `brain sec`——值放库外单一存储 `~/Private/secrets`（`NAME=value` 每行一条，protect-secrets 拦直读），调用只写名字，值进目标命令的环境变量或 stdin，永不进上下文、不进 argv。`brain sec ls` 看有哪些名字；`brain sec env NAME[,…] -- <命令>` 注入环境变量（如 aliyun AK/SK）；`brain sec stdin NAME -- ssh host 'sudo -S …'` 喂 stdin（sudo/远端 sudo）。用户只需把值写进那个文件、告诉你叫什么名，不用每次再贴
 - hooks 已接（`.claude/settings.json`，由 `brain register/upgrade` 维护）：SessionStart `brief` 注入简报 · PreToolUse `protect-secrets` 密钥读拦截（全局，改规则必跑 kit 的 `npm test`）· PostToolUse `check` 人读层写时校验（按报错改对别绕过）· Stop checkpoint 提交
 - 每日 06:00（按 BRAIN_TZ，默认 Asia/Shanghai；timer 渲染时带时区，机器时区不作数）systemd `brain-daily`：`brain daily` = 注册表里每个库 ingest（含图片重试）→ harvest-sweep（每晚 ≤3 场未捞会话，独立 `claude -p` 实例只放行读与写 `_ai/memory/**`，读打过码的浓缩稿；捞过的会话又续了 ≥6 轮只捞新增段；产物标 `provenance: auto-harvest`；关：`_system/vault.json` `harvest.enabled: false`）→ lint → snapshot 推送
 - Obsidian 常开（为同步）：删/移/开 vault 文件优先走 `obsidian vault="{{OBSIDIAN_VAULT}}" delete|move|open path=…`（同步插件认账，进 .trash 可捞）；kepano 五件 skill 已软链在 `.claude/skills/`
