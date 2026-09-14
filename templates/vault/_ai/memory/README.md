@@ -13,6 +13,8 @@ This is the AI memory of vault {{NAME}} (basic-memory project `{{MEMORY_PROJECT}
 
 ## Writing rules
 
+- **Writer model attribution (2026-09-14)**: derived notes carry `author_model` and `author_model_evidence`; use the runtime-reported model ID, or `unknown` when evidence is unavailable. Preserve the original author on edits; record `last_updated_by_model`, `contributor_models`, and dated `model_provenance` entries. `source_models` comes from the source transcript and must never be substituted for the harvest writer. Runtime identifiers describe what the client/provider reports, not independently verified backend routing. The shared harvest skill defines the fields; the nightly wrapper stamps them from CLI result metadata and lint checks coverage. Metadata-only backfills do not claim authorship of the existing prose.
+
 - **Write in English** (2026-08-27 decision): titles, filenames, body, observations, tags. LLMs retrieve and reason better over English. Exceptions: verbatim quotes kept as evidence, proper nouns, and command/path literals stay in their original language. The corpus started fresh in English (2026-08-27: Chinese legacy discarded per user decision — do NOT restore it from git history); embeddings stay multilingual so Chinese-language queries keep working.
 - Format: markdown + frontmatter (`title`/`type`/`tags`/`created`), free-form body, then `## Observations` (`- [category] fact #tag`) and `## Relations` (`- verb [[Target Title]]`) to feed the knowledge graph
 - Density is your call; telegraph style welcome. No prose polish needed — retrieval-friendliness first

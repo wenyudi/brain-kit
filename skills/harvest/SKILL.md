@@ -27,6 +27,16 @@ description: 沉淀——把当前(或指定历史)会话里的洞察/决定/经
 - 冒出的待办 → `tasks/<标题>.md`(`due: YYYY-MM-DD` + `status: open`)
 - **同主题已有文件就更新它**,别另起新篇(先 Grep 落点仓查重);但单页过 ~150 行就按子题拆、用 Relations 连边(2026-09-01 反巨页;journal 按日豁免)
 
+## 模型标识（2026-09-14）
+
+所有沉淀标明撰写模型。新页 frontmatter 带 `author_model`（运行时提供的模型 ID，如 `gpt-6-astra`）和 `author_model_evidence`（写入会话路径/元数据依据）；无法确认就写 `unknown`，不能按日期、客户端名或当前配置猜版本。
+
+`session` 指向被沉淀的来源会话，`source_models` 是该会话日志实际记录的模型列表（Claude 的 `message.model`、Codex 的 `turn_context.payload.model`）。来源会话模型不等于当前撰写模型，夜捞尤其如此。列表未能从日志提取时留空。
+
+续写已有页保留原 `author_model`，记录 `last_updated_by_model`，将当前模型并入 `contributor_models`。`model_provenance` 追加 `{at, role: create|update, models: [...], evidence: <写入会话依据>}`；同日 journal 的每个独立沉淀批次在条目旁标撰写模型与来源会话，不能用一个新作者覆盖整天。模型名称记录的是运行时报告标识，不保证代理服务内部实际路由。
+
+夜捞 wrapper 从 CLI JSON 的 `modelUsage` 自动补上述字段与 ledger，配置别名（如 `sonnet`）只记在 `requested_model`，不能冒充已确认作者。手动沉淀由当前模型按上述规则填写。仅修元数据不改变正文原作者。
+
 ## 落完必做:git 提交
 
 ```bash
