@@ -13,6 +13,7 @@
 - **写**：直接写 md 进 `_ai/memory/`（craft/ 经验 · playbooks/ 打法 · journal/ 事件流水 · tasks/ 待办带 `due`+`status: open|done`），格式见其 README。**一律用英文写**（证据原文引用与专有名词保留原语言）
 - **教训必拆页**：journal 里每条 `[lesson]` 同时落一篇 `craft/` 短页（一课一页、自包含、带日期、Relations 连回 journal 与它喂的人读层页），journal 只留事件和链接。brief/lint 有 lesson 对 craft 的缺口哨兵
 - **读**：优先 basic-memory MCP 检索（项目 `{{MEMORY_PROJECT}}`）；没有就 Grep `_ai/memory/`
+- **有效期与复核**：当前状态或新旧冲突用 `brain memory recall "问题"`，查 `_system/memory-state.json` 的逐条结论、证据日期与替换关系；未登记部分明确为未复核。模型标识只说明来源，更新模型用 `brain memory queue --model <ID>` 安排复核；时间久或模型旧不自动判错、删除。改判先用 `brain memory review-pack <库内路径>` 读原证据，再 `brain memory apply <JSON>` 登记结论与显式 supersedes；不能把重读时间当成 observed_at，也不能把建议标成已实施。同一 journal 只替换对应结论，不整页淘汰。
 - **准入黑名单制**：默认记录、宁多勿缺——亲历、尝试（含失败的）、决定与理由、环境事实、用户偏好、待验证猜测（标明是猜测）都进。只排除三类：①与本人环境零绑定的纯公共知识（公共资料去藏书房）②密钥/凭据 ③键击级流水（journal 记到事件级）。状态型事实带日期；改判用 edit 修正旧稿，不留误导版本
 - **一实体一页**：craft/playbooks 单页过约 150 行就按子题拆、Relations 连边；journal 按日豁免
 - 当前关注方向见 `_system/purpose.md`（人工维护，你只读）
@@ -65,7 +66,7 @@ SessionStart hook 注入 brief，以它为准：
 - 入口 `brain`（`{{KIT}}/bin/brain`，`~/.local/bin/brain`）：`brief | ingest [--dry-run --no-asr --no-commit --repair-assets] | lint | sweep [--dry-run --limit N --file <jsonl>] | sessions list|json|condense #n|mark #n | check | snap | snapshot | open <相对路径> | now | doctor | list | which | sec`。在库里跑自动认库，否则 `--vault <路径>`
 - **用凭据不读凭据**：需要密码/密钥时走 `brain sec`——值放库外单一存储 `~/Private/secrets`（`NAME=value` 每行一条，protect-secrets 拦直读），调用只写名字，值进目标命令的环境变量或 stdin，永不进上下文、不进 argv。`brain sec ls` 看有哪些名字；`brain sec env NAME[,…] -- <命令>` 注入环境变量（如 aliyun AK/SK）；`brain sec stdin NAME -- ssh host 'sudo -S …'` 喂 stdin（sudo/远端 sudo）。用户只需把值写进那个文件、告诉你叫什么名，不用每次再贴
 - hooks 已接（`.claude/settings.json`，由 `brain register/upgrade` 维护）：SessionStart `brief` 注入简报 · PreToolUse `protect-secrets` 密钥读拦截（全局，改规则必跑 kit 的 `npm test`）· PostToolUse `check` 人读层写时校验（按报错改对别绕过）· Stop checkpoint 提交
-- 每日 06:00（按 BRAIN_TZ，默认 Asia/Shanghai；timer 渲染时带时区，机器时区不作数）systemd `brain-daily`：`brain daily` = 注册表里每个库 ingest（含图片重试）→ harvest-sweep（每晚 ≤3 场未捞会话，独立 `claude -p` 实例只放行读与写 `_ai/memory/**`，读打过码的浓缩稿；捞过的会话又续了 ≥6 轮只捞新增段；产物标 `provenance: auto-harvest`；关：`_system/vault.json` `harvest.enabled: false`）→ lint → snapshot 推送
+- 每日 06:00（按 BRAIN_TZ，默认 Asia/Shanghai；timer 渲染时带时区，机器时区不作数）systemd `brain-daily`：`brain daily` = 注册表里每个库 ingest（含图片重试）→ harvest-sweep（每晚 ≤3 场未捞会话，独立 `claude -p` 实例只放行读与写 `_ai/memory/**`，读打过码的浓缩稿；捞过的会话又续了 ≥6 轮只捞新增段；产物标 `provenance: auto-harvest`；关：`_system/vault.json` `harvest.enabled: false`）→ memory-index（本库记忆和藏书房增量补向量，缺覆盖时全量补齐；不改正文、不调用 LLM）→ lint → snapshot 推送
 - Obsidian 常开（为同步）：删/移/开 vault 文件优先走 `obsidian vault="{{OBSIDIAN_VAULT}}" delete|move|open path=…`（同步插件认账，进 .trash 可捞）；kepano 五件 skill 已软链在 `.claude/skills/`
 - 时间戳 `brain now`；人读层契约散文版 `_system/schema.md`，规则与阈值单源 `{{KIT}}/lib/lib.js` CONTRACT
 

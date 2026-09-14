@@ -37,6 +37,14 @@ description: 沉淀——把当前(或指定历史)会话里的洞察/决定/经
 
 夜捞 wrapper 从 CLI JSON 的 `modelUsage` 自动补上述字段与 ledger，配置别名（如 `sonnet`）只记在 `requested_model`，不能冒充已确认作者。手动沉淀由当前模型按上述规则填写。仅修元数据不改变正文原作者。
 
+## 旧结论复核与替换（2026-09-14）
+
+撰写模型、事件发生时间、真实观察时间、沉淀时间、源稿重读时间分别记录。模型更新只触发复核，不自动提高可信度；仅重写旧总结不能把事实日期更新成今天。
+
+手动沉淀涉及会变化的状态、实施状态或明确改判时，先 `brain memory review-pack _ai/memory/<路径>.md` 取正文和 hash，再用 `brain memory apply <请求.json>` 登记逐条结论及原文证据，格式见 kit `docs/memory-lifecycle.md`。同一对象同一属性使用稳定 key；确认取代旧结论要显式列 `supersedes`，否则重叠版本按冲突处理；建议只能是 candidate。旧 journal 保留历史上下文，不整页过期。
+
+`brain memory queue --model <当前运行时模型ID>` 列出未复核、到期、源稿变动或待指定模型重审的记录。夜捞子进程仍只写 `_ai/memory/`，不扩大工具授权去改侧车；新页自动进入未复核列表，由之后会话确认结论。批量补标识不是批量验证事实。
+
 ## 落完必做:git 提交
 
 ```bash

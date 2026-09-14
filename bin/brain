@@ -23,7 +23,7 @@ const writeJson = (p, o) => { fs.mkdirSync(path.dirname(p), { recursive: true })
 const sh = (c, a, o = {}) => spawnSync(c, a, { encoding: 'utf8', ...o });
 const brainTz = () => { try { return require(path.join(LIB, 'lib.js')).TZ; } catch { return process.env.BRAIN_TZ || 'Asia/Shanghai'; } };
 const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
-const SCRIPTS = { brief: 'brief.js', lint: 'lint.js', ingest: 'ingest.js', sweep: 'harvest-sweep.js', sessions: 'sessions.js', check: 'check.js', snap: 'snap.js', recall: 'recall.js', now: 'now.js', open: 'open-in-obsidian.js' };
+const SCRIPTS = { brief: 'brief.js', lint: 'lint.js', ingest: 'ingest.js', sweep: 'harvest-sweep.js', sessions: 'sessions.js', check: 'check.js', snap: 'snap.js', recall: 'recall.js', memory: 'memory.js', now: 'now.js', open: 'open-in-obsidian.js' };
 const NVM = 'export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1; ';
 const hookCmd = (script, extra = '') => `bash -c '${NVM}BRAIN_ROOT="$CLAUDE_PROJECT_DIR" exec node "${KIT}/lib/${script}"${extra}'`;
 
@@ -126,6 +126,11 @@ function wireGlobal() {
   return lines;
 }
 
+function rulesSnippet(template) {
+  const list = R.vaults().map(v => { const c = vaultCfg(v); return `${v.name} = \`${v.path.replace(HOME, '~')}/_ai/memory\`（basic-memory 项目 \`${c.memoryProject || '?'}\`，藏书房项目 \`${c.libraryProject || '?'}\`）${v.include.length ? `，管 ${v.include.map(x => x.replace(HOME, '~')).join('、')} 下的会话` : '，默认库'}`; }).join('；');
+  return fs.readFileSync(path.join(KIT, 'templates/global', template), 'utf8').replace(/\{\{VAULTS\}\}/g, list).replace(/\{\{KIT\}\}/g, KIT);
+}
+
 // register/init 共用的参数解析：一次解析成对象（opt() 会从 rest 里摘走参数，二次解析会丢 --name/--include；审计 2026-09-03）
 function regOpts() {
   const o = { name: opt('--name'), project: opt('--project'), library: opt('--library'), include: opts('--include'), isDefault: flag('--default'), noDaily: flag('--no-daily'), force: flag('--force') };
@@ -164,7 +169,7 @@ const commands = {
         // 库不在（外置盘/NAS 没挂、异机路径不同）就跳过：在挂载点上造影子骨架会把夜捞产物写进虚空
         if (!fs.existsSync(path.join(v.path, '_ai', 'memory'))) { console.log('库不在（未挂载？）跳过'); failed++; continue; }
         const st = {};
-        for (const s of ['ingest.js', 'harvest-sweep.js', 'lint.js']) st[s.replace('.js', '')] = runScript(s, [], v);
+        for (const s of ['ingest.js', 'harvest-sweep.js', 'memory-index.js', 'lint.js']) st[s.replace('.js', '')] = runScript(s, [], v);
         st.snapshot = spawnSync('bash', [path.join(LIB, 'snapshot.sh')], { stdio: 'inherit', env: { ...process.env, BRAIN_ROOT: v.path } }).status ?? 1;
         const dest = vaultCfg(v).assetsBackup;
         if (dest) {
@@ -199,7 +204,18 @@ const commands = {
     console.log(`下一步：Obsidian 打开该目录作为库（名字 ${v.name}），userIgnoreFilters 加 _ai/；改 CLAUDE.md 块外的本库专属规则；git remote 自定。`);
   },
   upgrade() {
+    const rulesOnly = flag('--rules-only');
     const one = opt('--vault'); const vs = one ? [R.vaultAt(one) || { name: path.basename(one), path: R.real(one), include: [] }] : R.vaults();
+    if (rulesOnly) {
+      for (const v of vs) console.log(`${v.name}: CLAUDE.md ${wireCharter(v) ? 'rules refreshed' : 'no core marker'}`);
+      if (!one) {
+        const sources = [['.codex/AGENTS.md', 'AGENTS.snippet.md'], ['.claude/CLAUDE.md', 'CLAUDE.snippet.md']];
+        for (const [dest, template] of sources) {
+          renderBlock(path.join(HOME, dest), 'global', rulesSnippet(template));
+        }
+      }
+      return;
+    }
     for (const v of vs) { const h = wireHooks(v); const n = wireSkills(v); const c = wireCharter(v); console.log(`${v.name}: hooks ${Object.values(h).join('/')} · skills ${n} · CLAUDE.md 通用块 ${c ? '已刷新' : '无标记块，跳过'}`); }
     if (!one) console.log(wireGlobal().join('\n'));
   },

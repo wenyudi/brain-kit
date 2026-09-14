@@ -30,7 +30,7 @@ brain doctor
 ## 日常
 
 - 库里开 `claude` 就是全部用法：SessionStart 注入简报，对话里自动沉淀/收藏/检索，写人读层时 check 拦契约，Stop 自动 checkpoint
-- `brain daily`（systemd 每日 06:00，按 `BRAIN_TZ` 默认 Asia/Shanghai，timer 渲染时带时区）：每个库 ingest（含图片重试）→ harvest-sweep → lint → snapshot；`brain ingest --dry-run`、`brain sweep --dry-run`、`brain lint` 随时手动
+- `brain daily`（systemd 每日 06:00，按 `BRAIN_TZ` 默认 Asia/Shanghai，timer 渲染时带时区）：每个库 ingest（含图片重试）→ harvest-sweep → memory-index（本库向量补齐）→ lint → snapshot；`brain ingest --dry-run`、`brain sweep --dry-run`、`brain lint` 随时手动
 - 机制升级：改 `lib/` 或 `charter/core.md`，`git pull` 后 `brain upgrade` 刷所有库的通用块 / hooks / 软链 / 全局接线
 - 规则与阈值单源：`lib/lib.js` 的 `CONTRACT`；改护栏规则必跑 `npm test`
 
@@ -41,3 +41,5 @@ brain doctor
 - **inbox 出口机械化**：剪藏零 LLM 入库，只有用户写了说明的资料才花 LLM 深消化
 - **立规矩配约束**：能硬拦的进 check/protect-secrets，能日检的进 lint，该开场提醒的进 brief，纯判断类才留规约文字
 - **Obsidian 常开**：删/移/开文件走官方 CLI，让同步插件认账
+
+`brain memory recall|status|queue|review-pack|apply|health|maintain-index` 提供有日期和证据的记忆复核，详见 [memory-lifecycle](docs/memory-lifecycle.md)。`brain upgrade --rules-only` 仅刷新注册库与全局规则块，不重连服务、hooks 或 skills。
