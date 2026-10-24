@@ -12,7 +12,7 @@
   "scripts": {
     "daily": "node bin/brain daily",
     "doctor": "node bin/brain doctor",
-    "test": "node lib/hooks/protect-secrets.selftest.js && node lib/sessions.selftest.js && node lib/model-provenance.selftest.js && node lib/memory-state.selftest.js && node lib/memory-index.selftest.js"
+    "test": "node lib/hooks/protect-secrets.selftest.js && node lib/sessions.selftest.js && node lib/model-provenance.selftest.js && node lib/memory-state.selftest.js && node lib/memory-index.selftest.js && node lib/find.selftest.js"
   },
   "dependencies": {
     "gray-matter": "^4.0.3"

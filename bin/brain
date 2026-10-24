@@ -2,6 +2,7 @@
 'use strict';
 // brain —— brain-kit 统一入口。机制不装内容，按注册表（~/.config/brain/vaults.json）服务多个 vault。
 //   brain brief|lint|ingest|sweep|sessions|check|snap|snapshot|recall|now|open [args]   对当前库跑（--vault <路径> 指定）
+//   brain find <关键词…> [-n 8] [--all]   零常驻全文检索当前库（中英关键词都写；--all 跨库）
 //   brain daily                    注册表里每个 daily 库：ingest → sweep → lint → snapshot（systemd 06:00 调）
 //   brain init <目录> [选项]        铺空库骨架 + register
 //   brain register <目录> [--name N --project P --library L --include <前缀>… --default --no-daily]
@@ -23,7 +24,7 @@ const writeJson = (p, o) => { fs.mkdirSync(path.dirname(p), { recursive: true })
 const sh = (c, a, o = {}) => spawnSync(c, a, { encoding: 'utf8', ...o });
 const brainTz = () => { try { return require(path.join(LIB, 'lib.js')).TZ; } catch { return process.env.BRAIN_TZ || 'Asia/Shanghai'; } };
 const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
-const SCRIPTS = { brief: 'brief.js', lint: 'lint.js', ingest: 'ingest.js', sweep: 'harvest-sweep.js', sessions: 'sessions.js', check: 'check.js', snap: 'snap.js', recall: 'recall.js', memory: 'memory.js', now: 'now.js', open: 'open-in-obsidian.js' };
+const SCRIPTS = { brief: 'brief.js', lint: 'lint.js', ingest: 'ingest.js', sweep: 'harvest-sweep.js', sessions: 'sessions.js', check: 'check.js', snap: 'snap.js', recall: 'recall.js', memory: 'memory.js', find: 'find.js', now: 'now.js', open: 'open-in-obsidian.js' };
 const NVM = 'export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1; ';
 const hookCmd = (script, extra = '') => `bash -c '${NVM}BRAIN_ROOT="$CLAUDE_PROJECT_DIR" exec node "${KIT}/lib/${script}"${extra}'`;
 
@@ -149,7 +150,7 @@ function doRegister(o) {
 }
 
 const commands = {
-  help() { console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 10).map(l => l.replace(/^\/\/ ?/, '')).join('\n')); },
+  help() { console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 11).map(l => l.replace(/^\/\/ ?/, '')).join('\n')); },
   list() { for (const v of R.vaults()) { const c = vaultCfg(v); console.log(`${v.name.padEnd(16)} ${v.path}  记忆项目 ${c.memoryProject || '?'} · 藏书房 ${c.libraryProject || '?'} · 范围 ${v.include.length ? v.include.join('、') : '默认'} · daily ${v.daily !== false}`); } },
   which() { const c = rest[0] || process.cwd(); const v = R.vaultAt(c) || R.vaultFor(c); if (!v) die('无匹配 vault'); const cfg = vaultCfg(v); console.log(`${v.path}\t${cfg.memoryProject || '?'}\t${cfg.libraryProject || '?'}`); },
   snapshot() { const v = resolveVault(); process.exit(spawnSync('bash', [path.join(LIB, 'snapshot.sh')], { stdio: 'inherit', env: { ...process.env, BRAIN_ROOT: v.path } }).status || 0); },
@@ -249,5 +250,5 @@ const commands = {
   },
 };
 for (const k of Object.keys(SCRIPTS)) commands[k] = () => { const v = resolveVault(); process.exit(runScript(SCRIPTS[k], rest, v)); };
-if (!commands[cmd]) die(`未知命令 ${cmd}\n` + fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 10).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
+if (!commands[cmd]) die(`未知命令 ${cmd}\n` + fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 11).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
 commands[cmd]();
