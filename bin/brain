@@ -49,12 +49,20 @@ function fill(text, v) {
 function renderBlock(file, id, body, { appendIfMissing = false } = {}) {
   const start = `<!-- brain-kit:${id} start -->`, end = `<!-- brain-kit:${id} end -->`;
   let s = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
-  const block = `${start}\n${body.trim()}\n${end}`;
+  const eol = s.includes('\r\n') ? '\r\n' : '\n';   // 目标文件是 CRLF 就按 CRLF 写，别混行尾
+  const block = `${start}\n${body.trim()}\n${end}`.replace(/\r?\n/g, eol);
   const i = s.indexOf(start), j = s.indexOf(end);
   if (i >= 0 && j > i) s = s.slice(0, i) + block + s.slice(j + end.length);
-  else if (appendIfMissing) s = (s.trimEnd() + '\n\n' + block + '\n');
+  else if (appendIfMissing) s = (s.trimEnd() + eol + eol + block + eol);
   else return false;
-  fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, s.endsWith('\n') ? s : s + '\n'); return true;
+  fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, s.endsWith('\n') ? s : s + eol); return true;
+}
+function removeBlock(file, id) {
+  const start = `<!-- brain-kit:${id} start -->`, end = `<!-- brain-kit:${id} end -->`;
+  if (!fs.existsSync(file)) return false;
+  const s = fs.readFileSync(file, 'utf8'); const i = s.indexOf(start), j = s.indexOf(end);
+  if (i < 0 || j <= i) return false;
+  fs.writeFileSync(file, (s.slice(0, i).trimEnd() + '\n' + s.slice(j + end.length).replace(/^\s*\n/, '\n')).replace(/\n{3,}/g, '\n\n')); return true;
 }
 // 目标位置已有真实文件/目录（自己 clone 过的 skill、手写的 harvest、旧 brain 可执行文件）→ 改名留底，不删（审计 2026-09-03）
 function link(target, linkPath) {
@@ -98,19 +106,43 @@ const vaultList = vs => vs.map(v => `${v.name} = \`${v.path.replace(HOME, '~')}/
 // 默认库 → ~/.claude/CLAUDE.md 与 ~/.codex/AGENTS.md（全局）；有 include 的库 → 每个 include 目录的 CLAUDE.md
 // （同目录 AGENTS.md 若是独立文件而不是指向它的软链，也写）。upgrade / upgrade --rules-only / daily 都会刷。
 function wirePrefs(vs = R.vaults()) {
-  const out = [];
+  const out = []; const real = f => { try { return fs.realpathSync(f); } catch { return f; } };
   for (const v of vs) {
     const src = path.join(v.path, '_ai', 'memory', 'preferences.md');
-    if (!fs.existsSync(src)) continue;
-    const body = fs.readFileSync(src, 'utf8').replace(/\r\n?/g, '\n').replace(/^---\n[\s\S]*?\n---\n?/, '').trim();
     const id = 'prefs-' + (v.name || path.basename(v.path)).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    let targets;
+    if (!v.include.length) targets = [path.join(HOME, '.claude', 'CLAUDE.md'), path.join(HOME, '.codex', 'AGENTS.md')];
+    else {
+      // include 目录：CLAUDE.md 给 Claude（逐级读上层），AGENTS.md 给 Codex（缺就建指向 CLAUDE.md 的软链，独立文件则也写）；库自己的 CLAUDE.md 也写，
+      // 因为库是 git 仓、Codex 在库里以库为项目根，读不到 include 目录那份
+      targets = [];
+      for (const d of v.include) {
+        const c = path.join(d, 'CLAUDE.md'), a = path.join(d, 'AGENTS.md');
+        targets.push(c);
+        if (fs.existsSync(src) && !fs.existsSync(a)) { try { fs.symlinkSync('CLAUDE.md', a); out.push(`${a.replace(HOME, '~')} → CLAUDE.md 软链已建`); } catch (e) { out.push(`${a} 软链没建成：${e.message}`); } }
+        if (fs.existsSync(a) && real(a) !== real(c)) targets.push(a);
+      }
+      targets.push(path.join(v.path, 'CLAUDE.md'));
+    }
+    if (!fs.existsSync(src)) { for (const t of targets) if (removeBlock(t, id)) out.push(`${t.replace(HOME, '~')} 去掉 ${v.name} 偏好块（源文件已删）`); continue; }
+    const body = fs.readFileSync(src, 'utf8').replace(/\r\n?/g, '\n').replace(/^---\n[\s\S]*?\n---\n?/, '').trim();
     const block = `## ${v.name} 里用户明确说过的偏好（渲染自 \`${src.replace(HOME, '~')}\`，改那份文件，别在这里改）\n\n${body}`;
-    const real = f => { try { return fs.realpathSync(f); } catch { return f; } };
-    const targets = v.include.length
-      ? v.include.flatMap(d => { const c = path.join(d, 'CLAUDE.md'), a = path.join(d, 'AGENTS.md'); return fs.existsSync(a) && real(a) !== real(c) ? [c, a] : [c]; })
-      : [path.join(HOME, '.claude', 'CLAUDE.md'), path.join(HOME, '.codex', 'AGENTS.md')];
-    for (const t of targets) out.push(`${t.replace(HOME, '~')} ← ${v.name} 偏好 ${renderBlock(t, id, block, { appendIfMissing: true }) ? '✓' : '✗'}`);
+    for (const t of [...new Set(targets.map(real))]) out.push(`${t.replace(HOME, '~')} ← ${v.name} 偏好 ${renderBlock(t, id, block, { appendIfMissing: true }) ? '✓' : '✗'}`);
   }
+  return out;
+}
+
+// Codex 只从项目根往下读 AGENTS.md（项目根默认 = git 根，没有就只读当前目录），
+// include 目录（如 ~/Workspace/Work）不是 git 仓时，其下会话读不到区级 AGENTS.md（2026-10-25 实测）。
+// 办法：config.toml 的 project_root_markers 加 .agents-root，并在每个 include 目录放这个标记文件。
+function wireCodexRoots(vs = R.vaults()) {
+  const out = []; const cfg = path.join(HOME, '.codex', 'config.toml');
+  if (fs.existsSync(cfg)) {
+    const t = fs.readFileSync(cfg, 'utf8');
+    if (!/^project_root_markers\s*=/m.test(t)) { fs.writeFileSync(cfg, 'project_root_markers = [".git", ".agents-root"]\n' + t); out.push('~/.codex/config.toml 加 project_root_markers ✓'); }
+    else out.push(/^project_root_markers\s*=.*\.agents-root/m.test(t) ? 'codex project_root_markers ✓' : '⚠ ~/.codex/config.toml 已有 project_root_markers 但不含 .agents-root，手动加上');
+  }
+  for (const v of vs) for (const d of v.include) { const m = path.join(d, '.agents-root'); if (!fs.existsSync(m)) { fs.writeFileSync(m, ''); out.push(`${m.replace(HOME, '~')} 标记已建`); } }
   return out;
 }
 
@@ -235,6 +267,7 @@ const commands = {
     const one = opt('--vault'); const vs = one ? [R.vaultAt(one) || { name: path.basename(one), path: R.real(one), include: [] }] : R.vaults();
     if (rulesOnly) {
       for (const v of vs) console.log(`${v.name}: CLAUDE.md ${wireCharter(v) ? 'rules refreshed' : 'no core marker'}`);
+      if (one) for (const l of wirePrefs(vs)) console.log(l);
       if (!one) {
         const sources = [['.codex/AGENTS.md', 'AGENTS.snippet.md'], ['.claude/CLAUDE.md', 'CLAUDE.snippet.md']];
         for (const [dest, template] of sources) {
@@ -245,7 +278,8 @@ const commands = {
       return;
     }
     for (const v of vs) { const h = wireHooks(v); const n = wireSkills(v); const c = wireCharter(v); console.log(`${v.name}: hooks ${Object.values(h).join('/')} · skills ${n} · CLAUDE.md 通用块 ${c ? '已刷新' : '无标记块，跳过'}`); }
-    if (!one) { console.log(wireGlobal().join('\n')); console.log(wirePrefs().join('\n')); }
+    if (!one) { console.log(wireGlobal().join('\n')); console.log([...wireCodexRoots(), ...wirePrefs()].join('\n')); }
+    else console.log(wirePrefs(vs).join('\n'));
   },
   doctor() {
     const ok = (c, m) => console.log(`${c ? '✅' : '⚠️ '} ${m}`);

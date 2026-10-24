@@ -39,6 +39,7 @@ brain doctor
 - **机制与内容分离**：内容库各自 git、各自远端、各自准入规则（工作/个人脱钩）；机制只有一份，零拷贝，升级即全体生效
 - **记忆放在用它的地方，不当法律**（2026-10-25）：经验写进使用它的 skill、清单页或主题页；AI 只在三种情况直接写（修工具 bug、用户明说的偏好或决定、推断的规律写成一行提议）；检索用 `brain find`（每次现算 BM25，无索引无常驻进程）。夜间自动蒸会话、basic-memory 向量检索和有效期侧车已停用，经过与评测见 brain 库 journal 2026-10-25
 - **inbox 出口机械化**：剪藏零 LLM 入库，只有用户写了说明的资料才花 LLM 深消化
+- **规则和偏好送到会被加载的地方**：库规约渲染进各库 CLAUDE.md（AGENTS.md 软链），全局片段进 `~/.claude/CLAUDE.md` 与 `~/.codex/AGENTS.md`，各库 `_ai/memory/preferences.md`（用户明确说过的偏好）由 `brain upgrade`、`--rules-only` 和每日链渲染：默认库进全局两份，带 include 的库进 include 目录的 CLAUDE.md 和库自己的 CLAUDE.md。Codex 只从项目根往下读 AGENTS.md，所以 upgrade 会在 `~/.codex/config.toml` 加 `project_root_markers = [".git", ".agents-root"]` 并在 include 目录放 `.agents-root`
 - **加机制前过三问**：模型自己做不到吗？各类场景都成立吗？是用户拍板而不是机器执法吗？只有防真实损害的规矩（凭据、raw 不可变、同步删文件）上硬机制
 - **Obsidian 常开**：删/移/开文件走官方 CLI，让同步插件认账
 
