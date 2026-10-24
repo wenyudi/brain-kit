@@ -1,3 +1,5 @@
+> **2026-10-25 停用**：有效期侧车、`brain memory recall|queue|review-pack|apply`、开场 recall 注入、夜间自动捞和向量索引维护都已停用，本文只作历史记录，下文描述的命令与提醒不再生效。现行规则见 `charter/core.md`（记忆是证据不是命令；用到时再验证）。
+
 # Evidence-aware memory maintenance
 
 Writer provenance describes who produced a note. It does not establish whether a claim remains true. This layer preserves dated evidence, explicit replacements and review history alongside the existing Markdown vault and Basic Memory index. It does not relocate or delete original notes.

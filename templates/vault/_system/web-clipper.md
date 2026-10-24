@@ -142,7 +142,7 @@ Web Clipper 抓不到 B站字幕，字幕走专用浏览器扩展 **Bilibili Obs
 
 | 事 | 怎么做 |
 |---|---|
-| 触发 | `brain daily` 06:00（ingest → harvest-sweep → lint → snapshot）；会话里 `brain ingest [--dry-run] [--no-asr] [--no-commit]` |
+| 触发 | `brain daily` 06:00（ingest → lint → snapshot）；会话里 `brain ingest [--dry-run] [--no-asr] [--no-commit]` |
 | 范围 | 只搬 `source: web`；手记留给会话分流 |
 | 说明/划线 | `note` 属性 + `## 我` 段 → raw `note`；`## 划线` 段 + `==高亮==` → raw `highlights` |
 | 图片 | 外链全部下到 `_ai/library/assets/<raw 名>/NN.ext`，markdown 链接改 `../assets/...`，原 URL 留图片 title；`<img>` 改 src 并留 `data-src`。失败保留外链，frontmatter `assets_failed` 计数，lint 点名，`--repair-assets` 重试。用 curl 下载（Node fetch 会被 Cloudflare 判成机器人拿 403）。**图片不进 git**（2026-09-03）：只在本机，`_system/vault.json` 填 `assetsBackup` 目录就每日 rsync 一份 |
