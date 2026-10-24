@@ -46,4 +46,4 @@ If the user's note carries a judgment, reaction, or lesson (not just "for projec
 - **Red line: no credentials/keys/tokens**, same as everywhere.
 - Commit with the vault repo (single repo since 2026-08-28); batch writes get committed immediately, don't bet on the Stop hook. `ingest.js` commits its own batch.
 
-Derived source reviews follow `brain memory` validity and evidence rules. Re-reading an old article with a newer model does not make its underlying facts current. Raw originals remain immutable.
+A source page records what the article said and when it was collected; re-reading an old article with a newer model does not make its underlying facts current. Raw originals remain immutable.
