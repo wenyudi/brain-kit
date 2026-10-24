@@ -1,49 +1,35 @@
 ---
 name: harvest
-description: 沉淀——把当前(或指定历史)会话里的洞察/决定/经验蒸馏进记忆仓,英文写;落点由注册表按 cwd 定(`brain which`)。Use when 用户说「沉淀」「harvest」,或点名要蒸某场历史会话(claude/codex 的 jsonl)。在任何项目目录都可用。
+description: 沉淀——把当前(或指定历史)会话里值得留的事蒸进记忆仓;落点由注册表按 cwd 定(`brain which`)。Use when 用户说「沉淀」「harvest」,或点名要蒸某场历史会话(claude/codex 的 jsonl)。在任何项目目录都可用。
 ---
 
-# harvest — 会话蒸馏进 AI 仓
+# harvest — 会话里值得留的事写进记忆仓
 
-把对话里值钱的东西蒸出来,落进 AI 仓。**准入黑名单制(2026-09-01 起):默认记录、宁多勿缺——拿不准就落,噪音由检索排序兜底。**
+用户说「沉淀」才做。只留以后可能再用到的东西；用户的原话和决定优先；自己推断出来的规律只写成提议，等用户拍板（2026-10-25 起：AI 不立规矩，记忆不当法律）。
 
 ## 落点按注册表定(`brain which [cwd]` 一句话给答案)
 
-- `brain which` 输出「库路径 · 记忆项目 · 藏书房项目」:cwd 落在某库 `include` 前缀下就归它,否则归默认库(注册表 `~/.config/brain/vaults.json`);记忆区 = `<库路径>/_ai/memory/`(规约见其 README),basic-memory 写入显式带该库的 `project`
+- cwd 落在某库 `include` 前缀下就归它,否则归默认库(注册表 `~/.config/brain/vaults.json`);记忆区 = `<库路径>/_ai/memory/`(规约见其 README)
 - 跨库红线看各库 CLAUDE.md「本库专属」与各区 CLAUDE.md(如工作/个人脱钩:工作内容即使在个人目录聊到也落工作库;客户敏感数据存指针不存内容)
-- **一律用英文写**(2026-08-27 定):标题/文件名/正文/Observations;证据原文引用与专有名词保留原语言
-- 人读层(vault 顶层)**不动**:harvest 只写 `_ai/memory/`;常青页(pages/)与周 digest 走各自流程(用户点头/周报节奏)
+- 人读层(vault 顶层)**不动**:harvest 只写 `_ai/memory/`;常青页(pages/)与周 digest 走各自流程
+- 语言跟着内容走;专有名词、命令、原话保留原样
 
-## 蒸什么(准入黑名单制,2026-09-01 白名单翻黑名单)
+## 蒸什么、落到哪
 
-**默认记录**:亲历/踩坑/决定及理由、尝试过但没成的路、推翻的旧认识、跑通的可复用做法、环境事实、用户偏好、待验证猜测(标明是猜测)。拿不准就落——写入时预判"将来有没有用"不可靠,细节丢了不可恢复。
-**只排除三类**:①与本人环境零绑定的纯公共知识(概念/工具通用用法——检索噪音唯一来源)②凭据/密钥/token 绝不入仓(protect-secrets 护栏全局生效,但它拦的是读,写入全靠这条规矩;客户敏感内容存指针不存内容)③键击级流水(改了哪些文件、跑了什么命令的逐条过程不蒸;journal 记到事件级)。
-状态型事实带日期;同主题旧稿被推翻就 edit 修正,别留误导版本。
+- **用户明确说的偏好或决定** → 原话 + 日期 + 适用范围,进 `_ai/memory/preferences.md`(工作流程类;审美、方向这类每单重新判断的不进)或该项目的工作备注
+- **事件和决定** → 追加 `journal/<YYYY-MM-DD>.md`(记到事件级,不记键击级流水)
+- **可复用的经验** → 写到用它的地方:属于某个工具或流程的,提议改那个 skill 的参考资料(用户同意再改);属于环境的进清单页;其余进 `craft/` 的主题页(同主题已有就更新它,先 `brain find` 查重;不必一课一页)
+- **自己推断的规律** → journal 里一行「现象 + 提议」,不升格成规则
+- **工具 bug** → 指出来;用户在场且同意就直接修代码,修好这条就不必写成经验
+- **冒出的待办** → `tasks/<标题>.md`(`due: YYYY-MM-DD` + `status: open`)
+- 不记:密钥/凭据/token(红线;protect-secrets 拦的是读,写入全靠这条)、与本人环境无关的公共知识(公共资料去藏书房)
 
-## 落到哪(路径都在落点仓根下;brain 仓根=vault 的 `_ai/memory/`)
+## 怎么写才不容易过时
 
-- 经验教训 → `craft/<标题>.md`——**每条可复用的教训都单独一页**(2026-09-02 立规:journal 里的 `[lesson]` 只是原料不是终点;brief/lint 有 lesson 对 craft 的缺口哨兵;`type: craft`)(标题即文件名;frontmatter `title`/`type: craft`/`tags`/`created`/`session: <jsonl 路径或 live>`(夜捞产物另带 `provenance: auto-harvest`);正文**自包含**——关键对答/依据带在身上,会话原文回读贵;末尾 `## Observations`(`- [category] 事实 #tag`)和 `## Relations`(`- 动词 [[目标标题]]`)喂知识图谱)
-- 事件/决定流水 → 追加 `journal/<YYYY-MM-DD>.md`
-- 冒出的待办 → `tasks/<标题>.md`(`due: YYYY-MM-DD` + `status: open`)
-- **同主题已有文件就更新它**,别另起新篇(先 Grep 落点仓查重);但单页过 ~150 行就按子题拆、用 Relations 连边(2026-09-01 反巨页;journal 按日豁免)
-
-## 模型标识（2026-09-14）
-
-所有沉淀标明撰写模型。新页 frontmatter 带 `author_model`（运行时提供的模型 ID，如 `gpt-6-astra`）和 `author_model_evidence`（写入会话路径/元数据依据）；无法确认就写 `unknown`，不能按日期、客户端名或当前配置猜版本。
-
-`session` 指向被沉淀的来源会话，`source_models` 是该会话日志实际记录的模型列表（Claude 的 `message.model`、Codex 的 `turn_context.payload.model`）。来源会话模型不等于当前撰写模型，夜捞尤其如此。列表未能从日志提取时留空。
-
-续写已有页保留原 `author_model`，记录 `last_updated_by_model`，将当前模型并入 `contributor_models`。`model_provenance` 追加 `{at, role: create|update, models: [...], evidence: <写入会话依据>}`；同日 journal 的每个独立沉淀批次在条目旁标撰写模型与来源会话，不能用一个新作者覆盖整天。模型名称记录的是运行时报告标识，不保证代理服务内部实际路由。
-
-夜捞 wrapper 从 CLI JSON 的 `modelUsage` 自动补上述字段与 ledger，配置别名（如 `sonnet`）只记在 `requested_model`，不能冒充已确认作者。手动沉淀由当前模型按上述规则填写。仅修元数据不改变正文原作者。
-
-## 旧结论复核与替换（2026-09-14）
-
-撰写模型、事件发生时间、真实观察时间、沉淀时间、源稿重读时间分别记录。模型更新只触发复核，不自动提高可信度；仅重写旧总结不能把事实日期更新成今天。
-
-手动沉淀涉及会变化的状态、实施状态或明确改判时，先 `brain memory review-pack _ai/memory/<路径>.md` 取正文和 hash，再用 `brain memory apply <请求.json>` 登记逐条结论及原文证据，格式见 kit `docs/memory-lifecycle.md`。同一对象同一属性使用稳定 key；确认取代旧结论要显式列 `supersedes`，否则重叠版本按冲突处理；建议只能是 candidate。旧 journal 保留历史上下文，不整页过期。
-
-`brain memory queue --model <当前运行时模型ID>` 列出未复核、到期、源稿变动或待指定模型重审的记录。夜捞子进程仍只写 `_ai/memory/`，不扩大工具授权去改侧车；新页自动进入未复核列表，由之后会话确认结论。批量补标识不是批量验证事实。
+- 按「谁能让它失效」决定写法:我们自己的代码 → 修代码;供应商、工具的行为 → 一句带日期的话(写清是哪个供应商、哪天观察到);模型能力 → 便宜的预防照写,贵的补救写成「先检查 X,不过再做 Y」;环境现状 → 清单页上带日期的事实;模型路由判断(哪个模型做什么更好)→ 只留 journal
+- 状态型事实写观察日期;日期和观察来源写在句子里,不加 frontmatter 字段
+- 新证据推翻旧条目就改旧条目,旧说法连同日期移进 journal;两条在不同条件下都成立就写清条件
+- frontmatter 只要 `title` / `type` / `tags` / `created`;正文自包含——关键依据带在身上,会话原文回读贵
 
 ## 落完必做:git 提交
 
@@ -56,22 +42,13 @@ cd "<brain which 给的库路径>" && git add -A && git commit -m "harvest: <一
 
 这次蒸的东西让某主题攒到约 3 条同型经验、或一件事收尾了 → 对话里提一句「这个够写一篇常青页了,要吗」。**用户点头才动笔**,落 vault `pages/`,文风按 vault `_system/人话规范.md`。
 
-## 未捞会话(2026-09-02 机制:brief 报、夜里自动捞、白天点名捞)
-
-- 各库的 brief 会报「未捞会话 N 场」(最近 7 天、新增用户轮次 ≥6——起点是上次捞到的轮次或会话自己最后一次写记忆区的轮次,所以一场长会话可以被捞多次、每次只给新增段;范围按注册表,`_system/vault.json` 的 `harvest.include/exclude` 可覆写)。夜里 `brain-daily` 的 `harvest-sweep.js` 每晚自动捞 ≤3 场,craft/tasks 产物 frontmatter 带 `provenance: auto-harvest` + `session:`,journal 条目带 `auto-harvest:` 前缀。
-- 用户说「捞 #n」:
-  1. `brain sessions list` 看编号对应的路径（`brain which` 告诉你当前 cwd 归哪个库；`--vault <路径>` 指定库）
-  2. `brain sessions condense #n > /tmp/h.md` 拿浓缩稿(只留人话+助手正文+工具名,比读原始 jsonl 便宜一个量级),Read 它,不通读 jsonl
-  3. 照上面的规矩落盘、提交
-  4. `brain sessions mark #n manual` 登记,brief 就不再报它
-- 哪个 cwd 归哪个库由注册表 `~/.config/brain/vaults.json` 定(2026-09-03 brain-kit):`brain which <cwd>` 输出库路径与 basic-memory 项目名
-
 ## 历史会话怎么捞(用户点名才捞,不批量回扫)
 
+- 有编号的:`brain sessions list` 看编号对应路径 → `brain sessions condense #n > /tmp/h.md` 读浓缩稿 → 落盘提交 → `brain sessions mark #n manual` 登记。浓缩稿把工具输入截到 200 字、输出截到 300 字、超长会话丢中段:关键证据(报错原文、命令、数字)回原始 jsonl 按关键词定位核对,别凭浓缩稿下结论
 - Claude 会话:`~/.claude/projects/<项目slug>/*.jsonl`(slug=物理路径连字符化,个人 vault 现为 `-mnt-workspace-Raul-Obsidian-Vault`;2026-08-28 搬家前的会话在旧 slug `-home-raul-Documents-Obsidian-Vault`);按用户给的话题/时间,先 `ls -t` 锁定候选,再 Grep 关键词定位,只读命中段落附近,不通读全文件
 - Codex 会话:`~/.codex/sessions/<年>/…`(jsonl 同理)
-- 22G 历史永不全量扫;一次最多捞用户点名的 1–3 场
+- 22G 历史永不全量扫;一次最多捞用户点名的 1–3 场。夜间自动捞已于 2026-10-25 停用
 
 ## 汇报
 
-每条落盘物一行:`↳ craft/xxx.md`。没有够格的就直说"这场没有值得沉的",不硬蒸。
+每条落盘物一行:`↳ journal/xxx.md`、`↳ preferences.md`……没有够格的就直说"这场没有值得沉的",不硬蒸。

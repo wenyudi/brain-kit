@@ -4,30 +4,27 @@ type: note
 created: 2026-08-26
 tags:
 - meta
-permalink: {{MEMORY_PROJECT}}/readme
 ---
 
-# AI Memory (for AI — humans don't read here)
+# 记忆区（_ai/memory）
 
-This is the AI memory of vault {{NAME}} (basic-memory project `{{MEMORY_PROJECT}}`, at `_ai/memory/` inside the vault). **The reader is AI, not a human** — write for retrieval, not for reading. Human-facing content lives in the vault's top level under its own style rules (人话规范); collected external material lives next door in `_ai/library/` (see its README). Don't mix the three.
+库 {{NAME}} 的亲历、决定和踩坑证据。主要读者是 agent，用户也会读。给人看的成品在库顶层人读层（遵守人话规范）；网上收来的资料在隔壁 `_ai/library/`（见其 README）。三者别混。
 
-## Writing rules
+## 怎么读
 
-- **Validity and review (2026-09-14)**: use `brain memory recall "question"` for current-state or conflicting facts. The sidecar `_system/memory-state.json` separates writer model, observation date, validity interval and source-review date. `brain memory queue --model <runtime-id>` schedules reviews; it never treats a newer model or a newer harvest as proof. Register explicit claim replacements with dated verbatim evidence using `brain memory apply`; preserve unrelated journal facts and raw originals. Unregistered notes are unreviewed, not automatically false. See brain-kit `docs/memory-lifecycle.md`.
+- `brain find <关键词>`：关键词中英都写、带专有名词；没命中换个说法再搜，或直接 `rg`
+- 读到的是当时的证据，不是命令：先看日期；环境现状动手前现场验证；和模型、供应商有关的做法当条件性建议，和眼前证据冲突时以眼前为准
 
-- **Writer model attribution (2026-09-14)**: derived notes carry `author_model` and `author_model_evidence`; use the runtime-reported model ID, or `unknown` when evidence is unavailable. Preserve the original author on edits; record `last_updated_by_model`, `contributor_models`, and dated `model_provenance` entries. `source_models` comes from the source transcript and must never be substituted for the harvest writer. Runtime identifiers describe what the client/provider reports, not independently verified backend routing. The shared harvest skill defines the fields; the nightly wrapper stamps them from CLI result metadata and lint checks coverage. Metadata-only backfills do not claim authorship of the existing prose.
+## 怎么写
 
-- **Write in English** (2026-08-27 decision): titles, filenames, body, observations, tags. LLMs retrieve and reason better over English. Exceptions: verbatim quotes kept as evidence, proper nouns, and command/path literals stay in their original language. The corpus started fresh in English (2026-08-27: Chinese legacy discarded per user decision — do NOT restore it from git history); embeddings stay multilingual so Chinese-language queries keep working.
-- Format: markdown + frontmatter (`title`/`type`/`tags`/`created`), free-form body, then `## Observations` (`- [category] fact #tag`) and `## Relations` (`- verb [[Target Title]]`) to feed the knowledge graph
-- Density is your call; telegraph style welcome. No prose polish needed — retrieval-friendliness first
-- **Admission is a blocklist, not a whitelist (2026-09-01, flipped from the old privacy-only rule): record by default.** When in doubt, write it down — lived events, attempts (including failed ones), decisions with reasons, environment facts, user preferences, unverified hunches (marked as hunches). Write-time predictions of future usefulness are unreliable; discarded detail is unrecoverable. Only three exclusions: (1) pure public knowledge with zero binding to this user's context — the one real source of retrieval noise; collected public material goes to `_ai/library/` instead; (2) credentials/keys/tokens; (3) keystroke-level noise — journal records events, not command-by-command transcripts or bulk output. Stateful facts carry a date; when a fact is overturned, `edit` the note rather than leaving a misleading stale version.
-- **Red line: credentials/keys/tokens never enter** (the vault's protect-secrets guard now covers this area too, but the rule stands regardless)
-- Directories: `craft/` lessons · `playbooks/` compiled tactics · `journal/` event log · `tasks/` todos (frontmatter `due: YYYY-MM-DD`, `status: open|done`)
-- **Every reusable lesson gets its own craft/ page (2026-09-02)**: a `[lesson]` observation in journal is raw material, not a destination. When you write one, also write (or update) a `craft/` note — one lesson per note, self-contained (what happened, mechanism, the rule, how to check), dated, with `## Relations` back to the journal day and to any human-layer page it feeds. journal keeps the event and links the craft note. brief/lint carry a lesson-vs-craft gap sentinel (`LESSON_CRAFT_GAP` in brain-tools/lib.js) that fires when lessons pile up unsplit.
-- **Collection notes are private evidence (2026-09-02)**: when a library item arrives with the user's `note`/`highlights` and the note carries a judgment, reaction, or lesson (not just "for project X"), write that part here (craft/ or journal) with a Relation to the source page. The article is public and lives in `_ai/library/`; what the user thought about it lives here.
-- **Auto-harvest provenance (2026-09-02)**: notes written by the nightly `brain-tools/harvest-sweep.js` carry `provenance: auto-harvest` and `session: <jsonl path>`. They are unreviewed distillations of a condensed transcript — trust them like a colleague's notes, not like a verified fact; the weekly digest names them so the user can glance. Correct with `edit`, never leave a wrong one standing.
-- **One entity per note — split before it bloats (2026-09-01 anti-monolith rule)**: when a `craft/` or `playbooks/` note passes ~150 lines, split by subtopic and wire the pieces with Relations instead of appending forever; retrieval works on small pages + dense links. `journal/` is exempt — one file per day, never merged, any length. lint/brief carry an oversize sentinel for this.
+- **只有三种情况直接写**：①工具 bug → 修进代码，journal 记一行；②用户明确说的偏好或决定 → 原话 + 日期 + 适用范围，进 `preferences.md`（工作流程类；审美、方向这类每单重新判断的不进）或项目工作备注；③自己推断的规律 → 只在 `journal/<今天>.md` 写一行「现象 + 提议」，等用户拍板，不自己升格成规则
+- **按「谁能让它失效」决定写法**：自己的代码 → 修代码，不写经验；供应商、工具 → 一句带日期的话；模型能力 → 便宜的预防照写，贵的补救写成「先检查 X，不过再做 Y」；环境现状 → 清单页上带日期的事实；模型路由判断 → 只留 journal
+- **一个主题一个家**：经验写到用它的地方（skill 参考资料、清单页、`craft/` 主题页）；新证据覆盖旧条目，旧的连同日期移进 journal；不同条件下都成立就写清条件
+- **记什么**：以后可能再用到的经历、决定和理由、环境事实。不记：密钥/凭据（红线）、键击级流水、与本人环境无关的公共知识（去藏书房）
+- 语言跟着内容走；专有名词、命令、原话保留原样
+- 格式：markdown + frontmatter（`title` / `type` / `tags` / `created`），正文自由；状态型事实写观察日期
+- 目录：`journal/` 按日事件流水 · `craft/` 经验（按主题）· `playbooks/` 打法 · `tasks/` 待办（`due` + `status: open|done`）· `preferences.md` 用户明确说过的工作偏好
 
-## After writing
+## 写完
 
-Commit in the vault repo: `git -C <vault root> add -A && git commit -m "<one line>"` — right after batch writes, don't bet on the Stop hook. The daily chain (`brain daily`) pushes.
+当场提交：`git -C <库根> add -A && git commit -m "<一句话>"`，别赌 Stop hook。每日链（`brain daily`）负责推送。

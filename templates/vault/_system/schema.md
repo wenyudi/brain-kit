@@ -1,6 +1,6 @@
 # 人读层契约（散文版）
 
-2026-08-28 全合一后，vault 顶层是人读层；`_ai/` 是 AI 区（记忆 `_ai/memory` = basic-memory 项目 `brain`，藏书房 `_ai/library` = 项目 `library`），格式归各自的 README 管，这里不管。
+2026-08-28 全合一后，vault 顶层是人读层；`_ai/` 是 AI 区（记忆 `_ai/memory`、藏书房 `_ai/library`，检索用 `brain find`），格式归各自的 README 管，这里不管。
 
 ## 层与字段
 

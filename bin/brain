@@ -91,10 +91,13 @@ function ensureBmProjects(v) {
   return out.join(' · ');
 }
 
+// 全局片段里的库清单（两处渲染共用一份；2026-10-25 起不再写 basic-memory 项目名，检索走 brain find）
+const vaultList = vs => vs.map(v => `${v.name} = \`${v.path.replace(HOME, '~')}/_ai/memory\`${v.include.length ? `，管 ${v.include.map(x => x.replace(HOME, '~')).join('、')} 下的会话` : '，默认库'}`).join('；');
+
 // ---- 全局接线：片段 / 全局 hooks / codex 适配 / skills / systemd / PATH ----
 function wireGlobal() {
   const vs = R.vaults(); const lines = [];
-  const snippet = f => { let t = fs.readFileSync(path.join(KIT, 'templates', 'global', f), 'utf8'); const list = vs.map(v => { const c = vaultCfg(v); return `${v.name} = \`${v.path.replace(HOME, '~')}/_ai/memory\`（basic-memory 项目 \`${c.memoryProject || '?'}\`，藏书房项目 \`${c.libraryProject || '?'}\`）${v.include.length ? `，管 ${v.include.map(x => x.replace(HOME, '~')).join('、')} 下的会话` : '，默认库'}`; }).join('；'); return t.replace(/\{\{VAULTS\}\}/g, list).replace(/\{\{KIT\}\}/g, KIT); };
+  const snippet = f => { let t = fs.readFileSync(path.join(KIT, 'templates', 'global', f), 'utf8'); const list = vaultList(vs); return t.replace(/\{\{VAULTS\}\}/g, list).replace(/\{\{KIT\}\}/g, KIT); };
   lines.push(`~/.claude/CLAUDE.md 通用块 ${renderBlock(path.join(HOME, '.claude', 'CLAUDE.md'), 'global', snippet('CLAUDE.snippet.md'), { appendIfMissing: true }) ? '✓' : '✗'}`);
   lines.push(`~/.codex/AGENTS.md 通用块 ${renderBlock(path.join(HOME, '.codex', 'AGENTS.md'), 'global', snippet('AGENTS.snippet.md'), { appendIfMissing: true }) ? '✓' : '✗'}`);
   // 全局 hooks：protect-secrets（PreToolUse）+ recall（SessionStart）
@@ -128,7 +131,7 @@ function wireGlobal() {
 }
 
 function rulesSnippet(template) {
-  const list = R.vaults().map(v => { const c = vaultCfg(v); return `${v.name} = \`${v.path.replace(HOME, '~')}/_ai/memory\`（basic-memory 项目 \`${c.memoryProject || '?'}\`，藏书房项目 \`${c.libraryProject || '?'}\`）${v.include.length ? `，管 ${v.include.map(x => x.replace(HOME, '~')).join('、')} 下的会话` : '，默认库'}`; }).join('；');
+  const list = vaultList(R.vaults());
   return fs.readFileSync(path.join(KIT, 'templates/global', template), 'utf8').replace(/\{\{VAULTS\}\}/g, list).replace(/\{\{KIT\}\}/g, KIT);
 }
 
