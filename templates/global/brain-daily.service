@@ -1,5 +1,5 @@
 [Unit]
-Description=brain-kit daily chain: ingest → harvest-sweep → lint → snapshot for every registered vault
+Description=brain-kit daily chain: ingest → lint → snapshot for every registered vault
 
 [Service]
 Type=oneshot

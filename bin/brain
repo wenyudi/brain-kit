@@ -3,7 +3,7 @@
 // brain —— brain-kit 统一入口。机制不装内容，按注册表（~/.config/brain/vaults.json）服务多个 vault。
 //   brain brief|lint|ingest|sweep|sessions|check|snap|snapshot|recall|now|open [args]   对当前库跑（--vault <路径> 指定）
 //   brain find <关键词…> [-n 8] [--all]   零常驻全文检索当前库（中英关键词都写；--all 跨库）
-//   brain daily                    注册表里每个 daily 库：ingest → sweep → lint → snapshot（systemd 06:00 调）
+//   brain daily                    注册表里每个 daily 库：ingest → lint → snapshot（systemd 06:00 调）
 //   brain init <目录> [选项]        铺空库骨架 + register
 //   brain register <目录> [--name N --project P --library L --include <前缀>… --default --no-daily]
 //   brain upgrade [--vault p]      刷各库 CLAUDE.md 通用块 / hooks / skills 软链 + 全局片段 / 全局 hooks / systemd
@@ -100,12 +100,12 @@ function wireGlobal() {
   const snippet = f => { let t = fs.readFileSync(path.join(KIT, 'templates', 'global', f), 'utf8'); const list = vaultList(vs); return t.replace(/\{\{VAULTS\}\}/g, list).replace(/\{\{KIT\}\}/g, KIT); };
   lines.push(`~/.claude/CLAUDE.md 通用块 ${renderBlock(path.join(HOME, '.claude', 'CLAUDE.md'), 'global', snippet('CLAUDE.snippet.md'), { appendIfMissing: true }) ? '✓' : '✗'}`);
   lines.push(`~/.codex/AGENTS.md 通用块 ${renderBlock(path.join(HOME, '.codex', 'AGENTS.md'), 'global', snippet('AGENTS.snippet.md'), { appendIfMissing: true }) ? '✓' : '✗'}`);
-  // 全局 hooks：protect-secrets（PreToolUse）+ recall（SessionStart）
+  // 全局 hooks：protect-secrets（PreToolUse）。recall（SessionStart 按目录名搜 basic-memory）2026-10-25 撤掉，旧机器升级时顺手删
   const gp = path.join(HOME, '.claude', 'settings.json'); const g = readJson(gp) || {}; g.hooks = g.hooks || {};
   const gset = (event, matcher, marker, command) => { const arr = g.hooks[event] = g.hooks[event] || []; for (const e of arr) for (const h of e.hooks || []) if ((h.command || '').includes(marker)) { h.command = command; if (matcher) e.matcher = matcher; return; } arr.push({ ...(matcher ? { matcher } : {}), hooks: [{ type: 'command', command }] }); };
   gset('PreToolUse', 'Read|Bash|Grep|Glob', 'protect-secrets.js', `bash -c '${NVM}exec node "${KIT}/lib/hooks/protect-secrets.js"'`);
-  gset('SessionStart', null, 'recall.js', `node "${KIT}/lib/recall.js"`);
-  writeJson(gp, g); lines.push('全局 hooks（protect-secrets / recall）✓');
+  for (const ev of Object.keys(g.hooks)) { g.hooks[ev] = (g.hooks[ev] || []).map(e => ({ ...e, hooks: (e.hooks || []).filter(h => !(h.command || '').includes('/lib/recall.js')) })).filter(e => (e.hooks || []).length); if (!g.hooks[ev].length) delete g.hooks[ev]; }
+  writeJson(gp, g); lines.push('全局 hooks（protect-secrets）✓');
   // codex 护栏适配器
   const cp = path.join(HOME, '.codex', 'hooks', 'protect-secrets-codex.js');
   if (fs.existsSync(cp)) { const s = fs.readFileSync(cp, 'utf8').replace(/require\('[^']*protect-secrets\.js'\)/, `require('${KIT}/lib/hooks/protect-secrets.js')`); fs.writeFileSync(cp, s); lines.push('codex 护栏适配器 ✓'); }
@@ -160,7 +160,7 @@ const commands = {
   // sec 不认库：库外单一凭据存储，值进命令 env/stdin 不进上下文（ls/env/stdin/check）
   sec() { process.exit(spawnSync(process.execPath, [path.join(LIB, 'sec.js'), ...rest], { stdio: 'inherit' }).status || 0); },
   daily() {
-    // 互斥锁：定时器撞上手动跑（或上一晚没跑完）就跳过，免得同一场会话被捞两遍
+    // 互斥锁：定时器撞上手动跑（或上一晚没跑完）就跳过
     const lock = path.join(path.dirname(R.REG), 'daily.lock');
     let pid = 0; try { pid = +fs.readFileSync(lock, 'utf8'); } catch { /* 无锁 */ }
     if (pid && pid !== process.pid && alive(pid)) die(`brain daily 已在跑（pid ${pid}），本次跳过`);
@@ -173,7 +173,8 @@ const commands = {
         // 库不在（外置盘/NAS 没挂、异机路径不同）就跳过：在挂载点上造影子骨架会把夜捞产物写进虚空
         if (!fs.existsSync(path.join(v.path, '_ai', 'memory'))) { console.log('库不在（未挂载？）跳过'); failed++; continue; }
         const st = {};
-        for (const s of ['ingest.js', 'harvest-sweep.js', 'memory-index.js', 'lint.js']) st[s.replace('.js', '')] = runScript(s, [], v);
+        // 夜间自动蒸会话（harvest-sweep）与向量索引（memory-index）2026-10-25 停用：记忆放在用它的地方，检索用 brain find
+        for (const s of ['ingest.js', 'lint.js']) st[s.replace('.js', '')] = runScript(s, [], v);
         st.snapshot = spawnSync('bash', [path.join(LIB, 'snapshot.sh')], { stdio: 'inherit', env: { ...process.env, BRAIN_ROOT: v.path } }).status ?? 1;
         const dest = vaultCfg(v).assetsBackup;
         if (dest) {
@@ -248,7 +249,7 @@ const commands = {
     const secStore = process.env.BRAIN_SECRETS || path.join(HOME, 'Private', 'secrets');
     if (fs.existsSync(secStore)) { const wide = fs.statSync(secStore).mode & 0o077; ok(!wide, `凭据存储 ${secStore}（brain sec；${wide ? '⚠权限过宽,chmod 600' : '600'}）`); }
     else ok(true, `凭据存储未建（可选；brain sec 用时在 ${secStore} 写 NAME=value）`);
-    const g = readJson(path.join(HOME, '.claude', 'settings.json')); ok(JSON.stringify(g || {}).includes(`${KIT}/lib/recall.js`), '全局 SessionStart recall 钩子指向 kit');
+    const g = readJson(path.join(HOME, '.claude', 'settings.json')); ok(!JSON.stringify(g || {}).includes('/lib/recall.js'), '全局没有 recall 钩子（2026-10-25 撤掉；还在就 brain upgrade）');
     ok(JSON.stringify(g || {}).includes(`${KIT}/lib/hooks/protect-secrets.js`), '全局 protect-secrets 指向 kit');
   },
 };
