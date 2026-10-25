@@ -198,7 +198,7 @@ function doRegister(o) {
   const v = R.upsert(entry);
   ensureVaultJson(v);
   const hooks = wireHooks(v); const nSkills = wireSkills(v); const charter = wireCharter(v);
-  console.log(`已登记 ${v.name} → ${v.path}\n  范围 ${(v.include || []).join('、') || '默认'}\n  hooks: ${Object.entries(hooks).map(([k, s]) => `${k} ${s}`).join(' · ')}\n  skills 软链 ${nSkills} 个 · CLAUDE.md 通用块 ${charter ? '已刷新' : '没有标记块（在 CLAUDE.md 里放 <!-- brain-kit:core start --> / end --> 再 brain upgrade）'}\n  basic-memory: ${ensureBmProjects(v)}`);
+  console.log(`已登记 ${v.name} → ${v.path}\n  范围 ${(v.include || []).join('、') || '默认'}\n  hooks: ${Object.entries(hooks).map(([k, s]) => `${k} ${s}`).join(' · ')}\n  skills 软链 ${nSkills} 个 · CLAUDE.md 通用块 ${charter ? '已刷新' : '没有标记块（在 CLAUDE.md 里放 <!-- brain-kit:core start --> / end --> 再 brain upgrade）'}`);
   console.log(wireGlobal().map(l => '  ' + l).join('\n'));
 }
 
