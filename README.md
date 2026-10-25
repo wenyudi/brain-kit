@@ -29,7 +29,7 @@ brain doctor
 
 ## 日常
 
-- 库里开 `claude` 就是全部用法：SessionStart 注入简报，对话里自动沉淀/收藏/检索，写人读层时 check 拦契约，Stop 自动 checkpoint
+- 库里开 `claude` 就是全部用法：SessionStart 注入简报，对话里按三种情况写记忆（修工具 bug、用户明说的偏好或决定、推断的规律写成提议）、收藏、用 `brain find` 检索，写人读层时 check 拦契约，Stop 自动 checkpoint
 - `brain daily`（systemd 每日 06:00，按 `BRAIN_TZ` 默认 Asia/Shanghai，timer 渲染时带时区）：每个库 ingest（含图片重试）→ lint → snapshot；`brain ingest --dry-run`、`brain lint` 随时手动
 - 机制升级：改 `lib/` 或 `charter/core.md`，`git pull` 后 `brain upgrade` 刷所有库的通用块 / hooks / 软链 / 全局接线
 - 规则与阈值单源：`lib/lib.js` 的 `CONTRACT`；改护栏规则必跑 `npm test`

@@ -4,7 +4,7 @@
 
 ## 为什么能融合
 
-`inbox/` 是**批量/外部输入的统一前门**（对话里的自动沉淀直接进记忆区，不经这里）。Web Clipper 剪藏落 `inbox/`，frontmatter 只带回溯字段（url/site/author 等，毛坯无契约）。出口不再等人到场：`ingest.js` 零 LLM 把 `source: web` 的毛坯搬进藏书房，删毛坯；手机手记（`source: obsidian`）仍留给会话开场分流。
+`inbox/` 是**批量/外部输入的统一前门**（对话里按三种情况直接写的记忆——修工具 bug、用户明说的偏好或决定、推断的提议——直接进记忆区，不经这里）。Web Clipper 剪藏落 `inbox/`，frontmatter 只带回溯字段（url/site/author 等，毛坯无契约）。出口不再等人到场：`ingest.js` 零 LLM 把 `source: web` 的毛坯搬进藏书房，删毛坯；手机手记（`source: obsidian`）仍留给会话开场分流。
 
 ```
 网页 ──Web Clipper──▶ inbox/<时间>-<标题>.md  (source:web · url:… · note:… · ## 我 / ## 划线 / ## 正文)
