@@ -62,7 +62,9 @@ function removeBlock(file, id) {
   if (!fs.existsSync(file)) return false;
   const s = fs.readFileSync(file, 'utf8'); const i = s.indexOf(start), j = s.indexOf(end);
   if (i < 0 || j <= i) return false;
-  fs.writeFileSync(file, (s.slice(0, i).trimEnd() + '\n' + s.slice(j + end.length).replace(/^\s*\n/, '\n')).replace(/\n{3,}/g, '\n\n')); return true;
+  let before = s.slice(0, i), after = s.slice(j + end.length).replace(/^\r?\n/, '');   // 只拿掉块本身和紧跟的一个换行
+  if (/(\r?\n){2}$/.test(before)) before = before.replace(/\r?\n$/, '');            // 块前那一个空行也收掉，别处字节不动
+  fs.writeFileSync(file, before + after); return true;
 }
 // 目标位置已有真实文件/目录（自己 clone 过的 skill、手写的 harvest、旧 brain 可执行文件）→ 改名留底，不删（审计 2026-09-03）
 function link(target, linkPath) {
@@ -113,8 +115,8 @@ function wirePrefs(vs = R.vaults()) {
     let targets;
     if (!v.include.length) targets = [path.join(HOME, '.claude', 'CLAUDE.md'), path.join(HOME, '.codex', 'AGENTS.md')];
     else {
-      // include 目录：CLAUDE.md 给 Claude（逐级读上层），AGENTS.md 给 Codex（缺就建指向 CLAUDE.md 的软链，独立文件则也写）；库自己的 CLAUDE.md 也写，
-      // 因为库是 git 仓、Codex 在库里以库为项目根，读不到 include 目录那份
+      // include 目录：CLAUDE.md 给 Claude（逐级读上层，区下所有子目录和嵌套仓都读得到），AGENTS.md 给 Codex（缺就建指向 CLAUDE.md 的软链，独立文件则也写）。
+      // Codex 在区里的嵌套 git 仓（如 proposal skill 仓、Work Vault）以仓为项目根，读不到区级 AGENTS.md，所以另渲染一份进全局 ~/.codex/AGENTS.md，标题写明适用范围
       targets = [];
       for (const d of v.include) {
         const c = path.join(d, 'CLAUDE.md'), a = path.join(d, 'AGENTS.md');
@@ -122,11 +124,13 @@ function wirePrefs(vs = R.vaults()) {
         if (fs.existsSync(src) && !fs.existsSync(a)) { try { fs.symlinkSync('CLAUDE.md', a); out.push(`${a.replace(HOME, '~')} → CLAUDE.md 软链已建`); } catch (e) { out.push(`${a} 软链没建成：${e.message}`); } }
         if (fs.existsSync(a) && real(a) !== real(c)) targets.push(a);
       }
-      targets.push(path.join(v.path, 'CLAUDE.md'));
+      targets.push(path.join(HOME, '.codex', 'AGENTS.md'));
+      removeBlock(path.join(v.path, 'CLAUDE.md'), id);   // 早先也写进过库自己的 CLAUDE.md，对 Claude 是重复，收掉
     }
     if (!fs.existsSync(src)) { for (const t of targets) if (removeBlock(t, id)) out.push(`${t.replace(HOME, '~')} 去掉 ${v.name} 偏好块（源文件已删）`); continue; }
     const body = fs.readFileSync(src, 'utf8').replace(/\r\n?/g, '\n').replace(/^---\n[\s\S]*?\n---\n?/, '').trim();
-    const block = `## ${v.name} 里用户明确说过的偏好（渲染自 \`${src.replace(HOME, '~')}\`，改那份文件，别在这里改）\n\n${body}`;
+    const scope = v.include.length ? `，只在 ${v.include.map(d => d.replace(HOME, '~')).join('、')} 下工作时适用` : '';
+    const block = `## ${v.name} 里用户明确说过的偏好（渲染自 \`${src.replace(HOME, '~')}\`，改那份文件，别在这里改${scope}）\n\n${body}`;
     for (const t of [...new Set(targets.map(real))]) out.push(`${t.replace(HOME, '~')} ← ${v.name} 偏好 ${renderBlock(t, id, block, { appendIfMissing: true }) ? '✓' : '✗'}`);
   }
   return out;
@@ -267,19 +271,19 @@ const commands = {
     const one = opt('--vault'); const vs = one ? [R.vaultAt(one) || { name: path.basename(one), path: R.real(one), include: [] }] : R.vaults();
     if (rulesOnly) {
       for (const v of vs) console.log(`${v.name}: CLAUDE.md ${wireCharter(v) ? 'rules refreshed' : 'no core marker'}`);
-      if (one) for (const l of wirePrefs(vs)) console.log(l);
+      if (one) for (const l of [...wireCodexRoots(vs), ...wirePrefs(vs)]) console.log(l);
       if (!one) {
         const sources = [['.codex/AGENTS.md', 'AGENTS.snippet.md'], ['.claude/CLAUDE.md', 'CLAUDE.snippet.md']];
         for (const [dest, template] of sources) {
           renderBlock(path.join(HOME, dest), 'global', rulesSnippet(template));
         }
-        for (const l of wirePrefs()) console.log(l);
+        for (const l of [...wireCodexRoots(), ...wirePrefs()]) console.log(l);
       }
       return;
     }
     for (const v of vs) { const h = wireHooks(v); const n = wireSkills(v); const c = wireCharter(v); console.log(`${v.name}: hooks ${Object.values(h).join('/')} · skills ${n} · CLAUDE.md 通用块 ${c ? '已刷新' : '无标记块，跳过'}`); }
     if (!one) { console.log(wireGlobal().join('\n')); console.log([...wireCodexRoots(), ...wirePrefs()].join('\n')); }
-    else console.log(wirePrefs(vs).join('\n'));
+    else console.log([...wireCodexRoots(vs), ...wirePrefs(vs)].join('\n'));
   },
   doctor() {
     const ok = (c, m) => console.log(`${c ? '✅' : '⚠️ '} ${m}`);
