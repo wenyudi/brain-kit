@@ -4,7 +4,6 @@ type: note
 created: 2026-08-28
 tags:
 - meta
-permalink: {{LIBRARY_PROJECT}}/readme
 ---
 
 # Library (for AI — the reading room)

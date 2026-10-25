@@ -23,7 +23,7 @@ node bin/brain register "/path/to/Existing Vault" --project work --include ~/Wor
 brain doctor
 ```
 
-`register` 做的事：写注册表；补 `_system/vault.json`；写该库 `.claude/settings.json` 的 hooks（SessionStart brief / PostToolUse check / Stop checkpoint，指向本 kit，`BRAIN_ROOT="$CLAUDE_PROJECT_DIR"`）；把 kepano skills 软链进 `.claude/skills/`；渲染 CLAUDE.md 的通用块；给 basic-memory 建项目（失败会提示手动命令）；然后刷全局：`~/.claude/CLAUDE.md` 与 `~/.codex/AGENTS.md` 的通用块、全局 hooks（protect-secrets、recall）、Codex 护栏适配器、harvest skill 软链、systemd `brain-daily`（06:00）、`~/.local/bin/brain`。
+`register` 做的事：写注册表；补 `_system/vault.json`；写该库 `.claude/settings.json` 的 hooks（SessionStart brief / PostToolUse check / Stop checkpoint，指向本 kit，`BRAIN_ROOT="$CLAUDE_PROJECT_DIR"`）；把 kepano skills 软链进 `.claude/skills/`；渲染 CLAUDE.md 的通用块；然后刷全局：`~/.claude/CLAUDE.md` 与 `~/.codex/AGENTS.md` 的通用块和偏好块、全局 hooks（protect-secrets；旧的 recall 钩子会被删掉）、Codex 护栏适配器与项目根标记、harvest skill 软链、systemd `brain-daily`（06:00）、`~/.local/bin/brain`。
 
 外部依赖（`brain doctor` 会查）：Node ≥18、Obsidian ≥1.12 常开（CLI 删/开文件）、`yt-dlp ffmpeg curl`、`defuddle`（`npm i -g defuddle`）、faster-whisper venv（`python3 -m venv ~/.local/share/brain-asr/.venv && …/pip install faster-whisper`，预下载 medium 模型）。
 
