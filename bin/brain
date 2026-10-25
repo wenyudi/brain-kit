@@ -53,7 +53,8 @@ function renderBlock(file, id, body, { appendIfMissing = false } = {}) {
   const block = `${start}\n${body.trim()}\n${end}`.replace(/\r?\n/g, eol);
   const i = s.indexOf(start), j = s.indexOf(end);
   if (i >= 0 && j > i) s = s.slice(0, i) + block + s.slice(j + end.length);
-  else if (appendIfMissing) s = (s.trimEnd() + eol + eol + block + eol);
+  // 追加时原样保留文件末尾（空行、行尾空格），removeBlock 才能还原；只有原文件末尾没换行时会补一个
+  else if (appendIfMissing) s = s === '' ? block + eol : (s.endsWith('\n') ? s : s + eol) + eol + block + eol;
   else return false;
   fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, s.endsWith('\n') ? s : s + eol); return true;
 }
