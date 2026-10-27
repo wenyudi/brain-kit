@@ -36,7 +36,7 @@ If the user's note carries a judgment, reaction, or lesson (not just "for projec
 
 ## Rules
 
-- Deep/synthesis pages carry writer-model metadata (`author_model`, `author_model_evidence`, and provenance for later contributors) using the memory guide contract. Mechanical stubs have no model author. Collected raw originals retain their own source authorship and are never changed for this attribution backfill.
+- Deep/synthesis pages need only the frontmatter listed above; writer-model metadata (`author_model` etc.) is no longer required since 2026-10-25 (older pages keep theirs). Mechanical stubs have no model author; collected raw originals retain their own source authorship.
 
 - **Admission = curation.** The user collected it → it belongs. No second gate. Obvious accidents (shopping pages, one-off lookups) still land as stubs; the user deletes them when the digest names them.
 - **Entry points**: a path/link pasted in conversation (the user's message is the note) · Obsidian Web Clipper → vault `inbox/` (template has a `note` property, `## 我` and `## 划线` sections) · Bilibili subtitle clipper → `inbox/` (custom property `note`, extra section `我`). Intake is mechanical: `brain ingest` runs at 06:00 and on demand, lands raw + assets, writes stubs, removes the inbox file, commits. The LLM only touches items that carry a note.
