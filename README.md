@@ -5,7 +5,7 @@
 ```
 bin/brain            统一入口（软链到 ~/.local/bin/brain）
 lib/                 机制脚本：brief 简报 · check 写时契约 · lint 日检 · snap/snapshot 提交 · ingest 藏书房入库 ·
-                     find 零常驻全文检索 · sessions 会话扫描/浓缩/登记 · registry 注册表 · hooks/protect-secrets 密钥读拦截
+                     find 零常驻全文检索 · sessions 会话扫描/浓缩/登记 · registry 注册表
 skills/              harvest（沉淀）+ kepano obsidian-skills 五件（markdown / bases / canvas / cli / defuddle）
 charter/core.md      各库 CLAUDE.md 里的通用块（brain-kit:core 标记内，brain upgrade 整块刷新）
 templates/vault/     空库骨架（brain init 铺）· templates/global/ 全局片段与 systemd unit
@@ -23,7 +23,7 @@ node bin/brain register "/path/to/Existing Vault" --project work --include ~/Wor
 brain doctor
 ```
 
-`register` 做的事：写注册表；补 `_system/vault.json`；写该库 `.claude/settings.json` 的 hooks（SessionStart brief / PostToolUse check / Stop checkpoint，指向本 kit，`BRAIN_ROOT="$CLAUDE_PROJECT_DIR"`）；把 kepano skills 软链进 `.claude/skills/`；渲染 CLAUDE.md 的通用块；然后刷全局：`~/.claude/CLAUDE.md` 与 `~/.codex/AGENTS.md` 的通用块和偏好块、全局 hooks（protect-secrets；旧的 recall 钩子会被删掉）、Codex 护栏适配器与项目根标记、harvest skill 软链、systemd `brain-daily`（06:00）、`~/.local/bin/brain`。
+`register` 做的事：写注册表；补 `_system/vault.json`；写该库 `.claude/settings.json` 的 hooks（SessionStart brief / PostToolUse check / Stop checkpoint，指向本 kit，`BRAIN_ROOT="$CLAUDE_PROJECT_DIR"`）；把 kepano skills 软链进 `.claude/skills/`；渲染 CLAUDE.md 的通用块；然后刷全局：`~/.claude/CLAUDE.md` 与 `~/.codex/AGENTS.md` 的通用块和偏好块、清掉撤掉的全局 hooks（recall 2026-10-25、protect-secrets 2026-11-08）、Codex 项目根标记、harvest skill 软链、systemd `brain-daily`（06:00）、`~/.local/bin/brain`。
 
 外部依赖（`brain doctor` 会查）：Node ≥18、Obsidian ≥1.12 常开（CLI 删/开文件）、`yt-dlp ffmpeg curl`、`defuddle`（`npm i -g defuddle`）、faster-whisper venv（`python3 -m venv ~/.local/share/brain-asr/.venv && …/pip install faster-whisper`，预下载 medium 模型）。
 

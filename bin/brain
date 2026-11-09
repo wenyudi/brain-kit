@@ -73,6 +73,11 @@ function link(target, linkPath) {
   fs.mkdirSync(path.dirname(linkPath), { recursive: true }); fs.symlinkSync(target, linkPath);
 }
 
+// 从 settings 的 hooks 里拿掉命令含 marker 的项，空了的事件一并删（撤掉的钩子在升级时顺手清掉）
+function dropHooks(hooks, marker) {
+  for (const ev of Object.keys(hooks)) { hooks[ev] = (hooks[ev] || []).map(e => ({ ...e, hooks: (e.hooks || []).filter(h => !(h.command || '').includes(marker)) })).filter(e => (e.hooks || []).length); if (!hooks[ev].length) delete hooks[ev]; }
+}
+
 // ---- 每个库的接线：hooks / skills 软链 / CLAUDE.md 通用块 ----
 function wireHooks(v) {
   const p = path.join(v.path, '.claude', 'settings.json'); const s = readJson(p) || {}; s.hooks = s.hooks || {};
@@ -87,8 +92,8 @@ function wireHooks(v) {
     check: set('PostToolUse', 'Write|Edit', ['/check.js'], hookCmd('check.js')),
     // 旧式裸 git Stop hook（git add -A && push）一并换成 snap.js（陌生路径守卫；推不推由 vault.json checkpoint.push 定）
     snap: set('Stop', null, ['/snap.js', 'git add -A'], hookCmd('snap.js', ' checkpoint'), { addIfMissing: !(s.hooks.Stop || []).length }),
-    guard: set('PreToolUse', 'Read|Bash|Grep|Glob', ['protect-secrets.js'], `bash -c '${NVM}exec node "${KIT}/lib/hooks/protect-secrets.js"'`, { addIfMissing: false }),
   };
+  dropHooks(s.hooks, 'protect-secrets');   // 密钥读拦截 2026-11-08 按用户要求撤掉
   writeJson(p, s); return out;
 }
 function wireSkills(v) { const dir = path.join(v.path, '.claude', 'skills'); fs.mkdirSync(dir, { recursive: true }); let n = 0; for (const s of fs.readdirSync(path.join(KIT, 'skills'))) { if (s === 'harvest') continue; link(path.join(KIT, 'skills', s), path.join(dir, s)); n++; } return n; }
@@ -150,15 +155,14 @@ function wireGlobal() {
   const snippet = f => { let t = fs.readFileSync(path.join(KIT, 'templates', 'global', f), 'utf8'); const list = vaultList(vs); return t.replace(/\{\{VAULTS\}\}/g, list).replace(/\{\{KIT\}\}/g, KIT); };
   lines.push(`~/.claude/CLAUDE.md 通用块 ${renderBlock(path.join(HOME, '.claude', 'CLAUDE.md'), 'global', snippet('CLAUDE.snippet.md'), { appendIfMissing: true }) ? '✓' : '✗'}`);
   lines.push(`~/.codex/AGENTS.md 通用块 ${renderBlock(path.join(HOME, '.codex', 'AGENTS.md'), 'global', snippet('AGENTS.snippet.md'), { appendIfMissing: true }) ? '✓' : '✗'}`);
-  // 全局 hooks：protect-secrets（PreToolUse）。recall（SessionStart 按目录名搜 basic-memory）2026-10-25 撤掉，旧机器升级时顺手删
+  // 撤掉的全局 hooks，旧机器升级时顺手删：recall（2026-10-25）、protect-secrets 密钥读拦截（2026-11-08，用户「我感觉没有必要建钩子，去掉吧」）
   const gp = path.join(HOME, '.claude', 'settings.json'); const g = readJson(gp) || {}; g.hooks = g.hooks || {};
-  const gset = (event, matcher, marker, command) => { const arr = g.hooks[event] = g.hooks[event] || []; for (const e of arr) for (const h of e.hooks || []) if ((h.command || '').includes(marker)) { h.command = command; if (matcher) e.matcher = matcher; return; } arr.push({ ...(matcher ? { matcher } : {}), hooks: [{ type: 'command', command }] }); };
-  gset('PreToolUse', 'Read|Bash|Grep|Glob', 'protect-secrets.js', `bash -c '${NVM}exec node "${KIT}/lib/hooks/protect-secrets.js"'`);
-  for (const ev of Object.keys(g.hooks)) { g.hooks[ev] = (g.hooks[ev] || []).map(e => ({ ...e, hooks: (e.hooks || []).filter(h => !(h.command || '').includes('/lib/recall.js')) })).filter(e => (e.hooks || []).length); if (!g.hooks[ev].length) delete g.hooks[ev]; }
-  writeJson(gp, g); lines.push('全局 hooks（protect-secrets）✓');
-  // codex 护栏适配器
+  dropHooks(g.hooks, '/lib/recall.js'); dropHooks(g.hooks, 'protect-secrets');
+  writeJson(gp, g); lines.push('全局 hooks 清理（recall、protect-secrets）✓');
+  const cxp = path.join(HOME, '.codex', 'hooks.json'); const cx = readJson(cxp);
+  if (cx && cx.hooks) { dropHooks(cx.hooks, 'protect-secrets'); writeJson(cxp, cx); }
   const cp = path.join(HOME, '.codex', 'hooks', 'protect-secrets-codex.js');
-  if (fs.existsSync(cp)) { const s = fs.readFileSync(cp, 'utf8').replace(/require\('[^']*protect-secrets\.js'\)/, `require('${KIT}/lib/hooks/protect-secrets.js')`); fs.writeFileSync(cp, s); lines.push('codex 护栏适配器 ✓'); }
+  if (fs.existsSync(cp)) { fs.unlinkSync(cp); lines.push('codex 密钥拦截适配器已删 ✓'); }
   // skills：harvest 全局；kepano 五件给 codex（~/.agents/skills）
   link(path.join(KIT, 'skills', 'harvest'), path.join(HOME, '.claude', 'skills', 'harvest'));
   for (const s of fs.readdirSync(path.join(KIT, 'skills'))) link(path.join(KIT, 'skills', s), path.join(HOME, '.agents', 'skills', s));
@@ -303,7 +307,7 @@ const commands = {
     if (fs.existsSync(secStore)) { const wide = fs.statSync(secStore).mode & 0o077; ok(!wide, `凭据存储 ${secStore}（brain sec；${wide ? '⚠权限过宽,chmod 600' : '600'}）`); }
     else ok(true, `凭据存储未建（可选；brain sec 用时在 ${secStore} 写 NAME=value）`);
     const g = readJson(path.join(HOME, '.claude', 'settings.json')); ok(!JSON.stringify(g || {}).includes('/lib/recall.js'), '全局没有 recall 钩子（2026-10-25 撤掉；还在就 brain upgrade）');
-    ok(JSON.stringify(g || {}).includes(`${KIT}/lib/hooks/protect-secrets.js`), '全局 protect-secrets 指向 kit');
+    ok(!JSON.stringify(g || {}).includes('protect-secrets'), '全局没有 protect-secrets 钩子（2026-11-08 撤掉；还在就 brain upgrade）');
   },
 };
 for (const k of Object.keys(SCRIPTS)) commands[k] = () => { const v = resolveVault(); process.exit(runScript(SCRIPTS[k], rest, v)); };
